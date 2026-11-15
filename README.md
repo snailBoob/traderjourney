@@ -22,7 +22,7 @@ Set a password in **Settings → Security** before exposing the app beyond your 
 - Performance reports, equity curves, drawdowns, R multiples and a P&L calendar.
 - Daily preparation and reflection, account management and prop firm tracking.
 - Optional AI-assisted reviews using your own provider configuration.
-- Portable backup and restore in Settings. Installation passwords are excluded from these backups; preserve the data directory and any configured `JOURNAL_SECRET` separately.
+- Portable backup and restore in Import/Export. Installation passwords are excluded from these backups; preserve the data directory and any configured `JOURNAL_SECRET` separately.
 
 ## Screenshots
 
