@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+.next
+**/.next
+data
+**/data
+outputs
+.runtime-backup*
+.git
+**/.env*
+**/*.db
+**/*.db-*
+**/.cache
+**/*.tsbuildinfo
+*.tar
+*.tar.gz

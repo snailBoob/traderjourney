@@ -1,0 +1,15 @@
+services:
+  journal:
+    image: ghcr.io/snailboob/traderjourney:1.0.0
+    container_name: traderjourney
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      # Optional: require a password (recommended when exposed beyond localhost)
+      # JOURNAL_PASSWORD: change-me
+      # Optional: stable encryption secret for broker credentials at rest
+      # JOURNAL_SECRET: change-me-too
+      JOURNAL_DATA_DIR: /data
+    restart: unless-stopped

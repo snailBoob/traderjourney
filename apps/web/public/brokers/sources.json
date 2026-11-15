@@ -1,0 +1,70 @@
+{
+  "alpaca": {
+    "file": "alpaca.png",
+    "source": "https://files.alpaca.markets/webassets/apple-touch-icon.png"
+  },
+  "binance": {
+    "file": "binance.ico",
+    "source": "https://bin.bnbstatic.com/static/images/common/favicon.ico"
+  },
+  "bybit": { "file": "bybit.ico", "source": "https://www.bybit.com/favicon.ico" },
+  "coinbase": { "file": "coinbase.png", "source": "https://www.coinbase.com/favicon.ico" },
+  "crypto-com": { "file": "crypto-com.ico", "source": "https://crypto.com/favicon.ico" },
+  "etrade": {
+    "file": "etrade.png",
+    "source": "https://cdn2.etrade.net/1/21123117210.0/aempros/content/dam/etrade/global/pagemeta/images/apple-touch-icon.png"
+  },
+  "gemini": { "file": "gemini.ico", "source": "https://www.gemini.com/favicon.ico" },
+  "hyperliquid": {
+    "file": "hyperliquid.png",
+    "source": "https://hyperliquid.xyz/apple-touch-icon.png"
+  },
+  "ibkr-flex": {
+    "file": "ibkr-flex.png",
+    "source": "https://www.interactivebrokers.com/images/web/favicons/home-screen-icon-192x192.png"
+  },
+  "kraken": {
+    "file": "kraken.ico",
+    "source": "https://assets-cms.kraken.com/files/51n36hrp/facade/12abbf65966782e8a892b6b10565e5e8a6060da8.ico"
+  },
+  "kucoin": { "file": "kucoin.png", "source": "https://www.kucoin.com/logo.png?lang=en_US&" },
+  "okx": {
+    "file": "okx.png",
+    "source": "https://www.okx.com/cdn/assets/imgs/291/89001A8FD7AB4038904A203EAECB68E6.png"
+  },
+  "public": {
+    "file": "public.ico",
+    "source": "https://public.com/wp-content/uploads/2026/03/favicon.ico"
+  },
+  "questrade": { "file": "questrade.ico", "source": "https://www.questrade.com/favicon.ico" },
+  "robinhood-crypto": {
+    "file": "robinhood-crypto.png",
+    "source": "https://robinhood.com/us/en/rh_favicon_32.png?v=2024"
+  },
+  "schwab": {
+    "file": "schwab.ico",
+    "source": "https://www.schwab.com/themes/custom/sch_beacon_retail/favicons/favicon.ico"
+  },
+  "tastytrade": {
+    "file": "tastytrade.png",
+    "source": "https://tastytrade.com/favicon-32x32.png?v=8ca44522c3eaa2f81bd4984c419e750d"
+  },
+  "topstep": {
+    "file": "topstep.png",
+    "source": "https://cdn.prod.website-files.com/69e902b0a74d3d99a517f56d/6aaae816c7513025465a49bb_Topstep-Favicon.png"
+  },
+  "tradestation": {
+    "file": "tradestation.ico",
+    "source": "https://developer.tradestation.com/favicon.ico"
+  },
+  "tradier": {
+    "file": "tradier.png",
+    "source": "https://tradier.com/favicon-96x96.png?v=20260826"
+  },
+  "trading212": { "file": "trading212.png", "source": "https://www.trading212.com/favicon.png" },
+  "webull": {
+    "file": "webull.png",
+    "source": "https://wbstatic.webullfintech.com/v0/web/favicon.ico"
+  },
+  "bitunix": { "file": "bitunix.ico", "source": "https://www.bitunix.com/favicon.ico" }
+}

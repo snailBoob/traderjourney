@@ -1,0 +1,7 @@
+Broker icons identify the connected service; they do not imply endorsement.
+Names, logos and trademarks belong to their respective owners. These assets
+are not covered by Trade Journal's MIT license.
+
+Icons were retrieved from the brokers' public websites or their linked asset
+hosts on 2026-11-13. Exact source URLs are in sources.json. They are served
+locally so viewing account cards does not contact those websites.
