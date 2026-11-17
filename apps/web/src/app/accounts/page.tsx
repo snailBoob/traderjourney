@@ -1,4 +1,5 @@
 "use client";
+import { runSync } from "@/lib/sync-status";
 
 import { AccountConfirmationDialog, AccountTransferDialog } from "./account-action-dialogs";
 import { AccountCard, SortableAccountShell } from "./account-card";
@@ -42,7 +43,6 @@ function Accounts() {
   const [orderedAccounts, setOrderedAccounts] = useState<AccountRow[]>([]);
   const [draggingAccountId, setDraggingAccountId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const [syncing, setSyncing] = useState<string | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [confirmAction, setConfirmAction] = useState<{
@@ -100,9 +100,8 @@ function Accounts() {
     return result;
   };
 
-  const sync = async (id: string) => {
-    setSyncing(id);
-    try {
+  const sync = (id: string) =>
+    runSync(async () => {
       await action<{
         sync: {
           inserted: number;
@@ -112,16 +111,7 @@ function Accounts() {
           skippedReasons: string[];
         };
       }>(id, { action: "sync" });
-    } catch (error) {
-      refresh();
-      setMessage({
-        title: "Sync failed",
-        body: error instanceof Error ? error.message : "Sync failed",
-      });
-    } finally {
-      setSyncing(null);
-    }
-  };
+    }, id);
 
   const saveAccountName = async (account: AccountRow) => {
     const name = editingName.trim();
@@ -233,7 +223,6 @@ function Accounts() {
                   setEditingNameId={setEditingNameId}
                   setEditingName={setEditingName}
                   saveAccountName={saveAccountName}
-                  syncing={syncing}
                   sync={sync}
                   action={action}
                   refresh={refresh}

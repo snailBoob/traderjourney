@@ -97,6 +97,7 @@ export default function VisualNoteEditor({
 }) {
   const editor = useRef<MDXEditorMethods>(null);
   const lexical = useRef<LexicalEditor | null>(null);
+  const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
   const [error, setError] = useState("");
   const current = useRef(value);
   // Link detection can normalize Markdown after mount. Only user edits may autosave it.
@@ -134,6 +135,7 @@ export default function VisualNoteEditor({
   }, [value]);
   return (
     <div
+      ref={setOverlayContainer}
       onDragOverCapture={(event) => {
         if (event.dataTransfer.types.includes("Files")) {
           event.preventDefault();
@@ -199,6 +201,7 @@ export default function VisualNoteEditor({
       )}
       <MDXEditor
         ref={editor}
+        overlayContainer={overlayContainer ?? undefined}
         markdown={value}
         placeholder={placeholder}
         className="notebook-visual-editor"

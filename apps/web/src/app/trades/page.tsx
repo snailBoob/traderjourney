@@ -34,7 +34,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import Loading from "@/app/loading";
 import { postJson, useApi } from "@/lib/use-api";
-import { publishHeaderNotice } from "@/lib/header-notice";
 import { saveUiPreference, useUiPreferences } from "@/lib/ui-preferences-client";
 import {
   DndContext,
@@ -151,7 +150,6 @@ function Trades() {
     metrics: TradeMetrics;
     timeZone: string;
   }>(`/api/trades?view=list&${query}`);
-  const { refresh: refreshSync } = useApi<{ lastSyncAt: string | null }>("/api/sync");
   const searchParams = useSearchParams();
   const router = useRouter();
   const requestedExpandedKey = searchParams.get("expand");
@@ -184,8 +182,6 @@ function Trades() {
   };
   const timeZone = data?.timeZone ?? "UTC";
   const [page, setPage] = useState(0);
-  const [syncing, setSyncing] = useState(false);
-  const showSyncMessage = (message: string) => publishHeaderNotice(message);
   const [showColumns, setShowColumns] = useState(false);
   const columnTriggerRef = useRef<HTMLDivElement>(null);
   const columnPanelRef = useRef<HTMLDivElement>(null);
@@ -567,39 +563,6 @@ function Trades() {
     ? visibleRows.findIndex((row) => row.original.key === expanded)
     : -1;
   const rowsToRender = visibleRows;
-  const sync = async () => {
-    setSyncing(true);
-    try {
-      const result = await postJson<{
-        inserted: number;
-        corrected: number;
-        newTrades: number;
-        failedAccounts: number;
-        skipped: number;
-      }>("/api/sync", {});
-      refresh();
-      refreshSync();
-      if (result.failedAccounts > 0) {
-        showSyncMessage(
-          `Sync completed — ${result.newTrades} new trade${result.newTrades === 1 ? "" : "s"}${result.corrected ? `, ${result.corrected} corrected fills` : ""}${result.skipped ? `, ${result.skipped} skipped` : ""}; ${result.failedAccounts} account(s) failed`,
-        );
-      } else if (result.corrected > 0) {
-        showSyncMessage(
-          `Sync complete — ${result.inserted} new fills, ${result.corrected} corrected fills`,
-        );
-      } else if (result.inserted > 0) {
-        showSyncMessage(
-          `Sync complete — ${result.newTrades} new trade${result.newTrades === 1 ? "" : "s"}`,
-        );
-      } else {
-        showSyncMessage("Sync complete — no new data");
-      }
-    } catch (cause) {
-      showSyncMessage(cause instanceof Error ? cause.message : "Sync failed");
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const m = data?.metrics;
   return (
@@ -609,7 +572,6 @@ function Trades() {
         scope="standard"
         showSync
         showEditToday
-        onSync={sync}
         actions={
           <div ref={columnTriggerRef}>
             <Button variant="outline" size="sm" onClick={() => setShowColumns((value) => !value)}>

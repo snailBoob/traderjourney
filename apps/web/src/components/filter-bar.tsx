@@ -22,6 +22,7 @@ import {
 import { AccountSelector } from "./account-selector";
 import { postJson, useApi } from "@/lib/use-api";
 import { publishHeaderNotice, subscribeHeaderNotice } from "@/lib/header-notice";
+import { runSync, useSyncStatus, setSyncFailure } from "@/lib/sync-status";
 export type FilterScope = "standard" | "journal" | "missed";
 export type FilterValues = AnalysisFilters & {
   missedRuleFollowed?: string;
@@ -103,7 +104,6 @@ export function FilterBar({
   showEditToday = false,
   showFilters: showFiltersOverride,
   showHeaderMessage = true,
-  onSync,
 }: {
   title: string;
   actions?: React.ReactNode;
@@ -113,7 +113,6 @@ export function FilterBar({
   showEditToday?: boolean;
   showFilters?: boolean;
   showHeaderMessage?: boolean;
-  onSync?: () => Promise<void>;
 }) {
   const router = useRouter(),
     pathname = usePathname(),
@@ -143,11 +142,7 @@ export function FilterBar({
   const hasConnectedBroker =
     accountStatus?.accounts.some((account) => account.kind === "sync" && account.connected) ??
     false;
-  const [syncing, setSyncing] = useState(false);
-  const [syncFailure, setSyncFailure] = useState<{
-    summary: string;
-    failures: { account: string; error: string }[];
-  } | null>(null);
+  const { syncing, syncFailure } = useSyncStatus();
   const [syncShortcut, setSyncShortcut] = useState("Ctrl + Shift + S");
   useEffect(() => {
     const platform = navigator.platform ?? "";
@@ -190,59 +185,44 @@ export function FilterBar({
     return messages[((day % messages.length) + messages.length) % messages.length] ?? "";
   }, [headerSettings?.timeZone, messages]);
   const sync = useCallback(async () => {
-    if (syncing) return;
-    setSyncing(true);
-    setSyncFailure(null);
-    try {
-      if (onSync) {
-        await onSync();
+    await runSync(async () => {
+      const result = await postJson<{
+        inserted: number;
+        corrected: number;
+        newTrades: number;
+        failedAccounts: number;
+        skipped: number;
+        syncedAccounts: number;
+        failures: { accountId: string; error: string }[];
+      }>("/api/sync", {});
+      if (result.failedAccounts > 0) {
+        const summary =
+          result.syncedAccounts > 0
+            ? `Sync partially completed: ${result.syncedAccounts} account(s) synced, ${result.failedAccounts} failed. ${result.newTrades} new trades and ${result.corrected ?? 0} corrected fills were saved; ${result.skipped} fills were skipped.`
+            : `Sync failed for all ${result.failedAccounts} account(s). No account completed this sync. Check the errors below before syncing again.`;
+        setSyncFailure({
+          summary,
+          failures: result.failures.map((failure) => ({
+            account:
+              accountStatus?.accounts.find((account) => account.id === failure.accountId)?.name ??
+              failure.accountId,
+            error: failure.error,
+          })),
+        });
+        publishHeaderNotice("Sync needs attention. See the account errors in the dialog.");
+      } else if (result.corrected > 0) {
+        publishHeaderNotice(
+          `Sync complete — ${result.inserted} new fills, ${result.corrected} corrected fills`,
+        );
+      } else if (result.inserted > 0) {
+        publishHeaderNotice(
+          `Sync complete — ${result.newTrades} new trade${result.newTrades === 1 ? "" : "s"}`,
+        );
       } else {
-        const result = await postJson<{
-          inserted: number;
-          corrected: number;
-          newTrades: number;
-          failedAccounts: number;
-          skipped: number;
-          syncedAccounts: number;
-          failures: { accountId: string; error: string }[];
-        }>("/api/sync", {});
-        if (result.failedAccounts > 0) {
-          const summary =
-            result.syncedAccounts > 0
-              ? `Sync partially completed: ${result.syncedAccounts} account(s) synced, ${result.failedAccounts} failed. ${result.newTrades} new trades and ${result.corrected ?? 0} corrected fills were saved; ${result.skipped} fills were skipped.`
-              : `Sync failed for all ${result.failedAccounts} account(s). No account completed this sync. Check the errors below before syncing again.`;
-          setSyncFailure({
-            summary,
-            failures: result.failures.map((failure) => ({
-              account:
-                accountStatus?.accounts.find((account) => account.id === failure.accountId)?.name ??
-                failure.accountId,
-              error: failure.error,
-            })),
-          });
-          publishHeaderNotice("Sync needs attention. See the account errors in the dialog.");
-        } else if (result.corrected > 0) {
-          publishHeaderNotice(
-            `Sync complete — ${result.inserted} new fills, ${result.corrected} corrected fills`,
-          );
-        } else if (result.inserted > 0) {
-          publishHeaderNotice(
-            `Sync complete — ${result.newTrades} new trade${result.newTrades === 1 ? "" : "s"}`,
-          );
-        } else {
-          publishHeaderNotice("Sync complete — no new data");
-        }
+        publishHeaderNotice("Sync complete — no new data");
       }
-      window.dispatchEvent(new Event("tj:api-refresh"));
-    } catch (cause) {
-      const summary =
-        cause instanceof Error ? cause.message : "Sync failed. Check Accounts before trying again.";
-      setSyncFailure({ summary, failures: [] });
-      publishHeaderNotice("Sync could not be confirmed. See the error in the dialog.");
-    } finally {
-      setSyncing(false);
-    }
-  }, [onSync, syncing, accountStatus]);
+    });
+  }, [accountStatus]);
   useEffect(() => {
     if (!hasConnectedBroker) return;
     const handleShortcut = (event: KeyboardEvent) => {

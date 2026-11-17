@@ -1,4 +1,5 @@
 "use client";
+import { useSyncStatus } from "@/lib/sync-status";
 
 import { MonetaryField, MonetaryValue } from "@/components/privacy";
 import { BrokerLogo } from "@/components/broker-logo";
@@ -45,7 +46,6 @@ export function AccountCard({
   setEditingNameId,
   setEditingName,
   saveAccountName,
-  syncing,
   sync,
   action,
   refresh,
@@ -58,7 +58,6 @@ export function AccountCard({
   setEditingNameId: (id: string | null) => void;
   setEditingName: (name: string) => void;
   saveAccountName: (account: AccountRow) => Promise<void>;
-  syncing: string | null;
   sync: (id: string) => Promise<void>;
   action: (id: string, body: Record<string, unknown>) => Promise<unknown>;
   refresh: () => void;
@@ -68,7 +67,8 @@ export function AccountCard({
   const broker = brokerDetails(account.broker);
   const status = connectionStatus(account);
   const failed = account.snapshot?.syncStatus === "error";
-  const isSyncing = syncing === account.id;
+  const { syncing, accountId } = useSyncStatus();
+  const isSyncing = syncing && (!accountId || accountId === account.id);
   const hasSnapshot = Boolean(account.snapshot?.fetchedAt || account.lastSyncAt);
   const equityCurrency = account.snapshot?.currency ?? account.currency;
   return (
@@ -142,12 +142,12 @@ export function AccountCard({
                   variant="outline"
                   size="sm"
                   className="h-8 shrink-0"
-                  disabled={syncing === account.id}
+                  disabled={syncing}
                   onClick={() => void sync(account.id)}
                   title="Sync account"
                 >
-                  <RefreshCw className={syncing === account.id ? "animate-spin" : undefined} />
-                  {syncing === account.id ? "Syncing…" : "Sync now"}
+                  <RefreshCw className={isSyncing ? "animate-spin" : undefined} />
+                  {isSyncing ? "Syncing…" : "Sync now"}
                 </Button>
               )}
             </div>

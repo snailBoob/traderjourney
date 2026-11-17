@@ -1,4 +1,5 @@
 "use client";
+import { AppVersion } from "./app-version";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -425,7 +426,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const footer =
     process.env.NEXT_PUBLIC_SCREENSHOT_MODE === "1" ? null : (
       <div className="journal-sidebar-footer border-t p-3 text-xs text-muted-foreground">
-        <div>Open source · v{process.env.NEXT_PUBLIC_APP_VERSION ?? "unknown"}</div>
+        <AppVersion />
       </div>
     );
   return (

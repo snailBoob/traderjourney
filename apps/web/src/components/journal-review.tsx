@@ -35,7 +35,6 @@ export function JournalReview() {
   const query = new URLSearchParams(filters).toString();
   return (
     <ReviewSetup
-      key={`${query}:${timeZone}`}
       filters={filters}
       query={query}
       timeZone={timeZone}
@@ -64,6 +63,15 @@ function ReviewSetup({
   const [customLanguage, setCustomLanguage] = useState(false);
   const [refreshIndex, setRefreshIndex] = useState(0);
   const [autoStart, setAutoStart] = useState(false);
+  const selectionKey = `${query}:${timeZone}`;
+  const [previousSelection, setPreviousSelection] = useState(selectionKey);
+  if (previousSelection !== selectionKey) {
+    setPreviousSelection(selectionKey);
+    setNoteIds(null);
+    setSearch("");
+    setRefreshIndex(0);
+    setAutoStart(false);
+  }
   const {
     data: settings,
     error: settingsError,
@@ -81,9 +89,30 @@ function ReviewSetup({
     setLanguage(value);
     setCustomLanguage(!Object.values(languages).includes(value));
   }, [settings?.aiReviewLanguage]);
-  const { data, error, loading } = useApi<ReviewContext>(
+  const {
+    data: freshData,
+    error,
+    loading,
+  } = useApi<ReviewContext>(
     `/api/ai/review?${query}&compare=${compare}&_refresh=${refreshIndex}${noteIds === null ? "" : `&noteIds=${encodeURIComponent(noteIds.join(","))}`}`,
   );
+  // Keep the complete displayed scope together until its replacement is ready.
+  const [displayed, setDisplayed] = useState<{
+    data: ReviewContext;
+    selectionKey: string;
+    refreshIndex: number;
+  } | null>(null);
+  if (
+    freshData &&
+    !loading &&
+    (displayed?.data !== freshData ||
+      displayed.selectionKey !== selectionKey ||
+      displayed.refreshIndex !== refreshIndex)
+  ) {
+    setDisplayed({ data: freshData, selectionKey, refreshIndex });
+  }
+  const data = displayed?.data;
+  const pending = loading || Boolean(error) || !freshData;
   const changeLanguage = (value: string, persist = true) => {
     setLanguage(value);
     if (persist && value.trim())
@@ -98,7 +127,7 @@ function ReviewSetup({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Journal review</CardTitle>
+        <CardTitle>AI journal review</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="max-w-3xl text-sm text-muted-foreground">
@@ -165,22 +194,22 @@ function ReviewSetup({
             {error}
           </p>
         )}
-        {loading && <p role="status">Loading review context…</p>}
-        {data && !loading && (
-          <>
+        {loading && !data && <p role="status">Loading review context…</p>}
+        {data && (
+          <fieldset disabled={pending} aria-busy={loading} className="min-w-0 space-y-4">
             <p className="text-sm">{data.label}</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Period title="Current selection" period={data.current} />
-              {compare && <Period title="Previous selection" period={data.previous} />}
+              {data.compare && <Period title="Previous selection" period={data.previous} />}
             </div>
-            {compare && data.previous.count === 0 && (
+            {data.compare && data.previous.count === 0 && (
               <p className="text-sm text-muted-foreground">
                 No previous trades are available for this selection.
               </p>
             )}
             <p className="text-sm text-muted-foreground">
-              {compare ? data.comparison : ""} Missing R values are excluded, not treated as zero.
-              Monetary averages are shown only for a single currency.
+              {data.compare ? data.comparison : ""} Missing R values are excluded, not treated as
+              zero. Monetary averages are shown only for a single currency.
             </p>
             <details className="border-y py-3">
               <summary className="cursor-pointer text-sm font-medium">
@@ -228,13 +257,14 @@ function ReviewSetup({
               </div>
             </details>
             <ReviewChat
-              key={`${data.id}:${language}:${refreshIndex}`}
+              key={`${displayed?.selectionKey}:${data.id}:${language}:${displayed?.refreshIndex}`}
               context={data}
               filters={filters}
               timeZone={timeZone}
               noteIds={selected}
               language={language}
-              autoStart={autoStart}
+              autoStart={autoStart && !pending}
+              disabled={pending}
               onStarted={() => setAutoStart(false)}
               onNewReview={(start) => {
                 setAutoStart(start);
@@ -261,7 +291,7 @@ function ReviewSetup({
                 ))}
               </div>
             </details>
-          </>
+          </fieldset>
         )}
       </CardContent>
     </Card>
@@ -319,6 +349,7 @@ function ReviewChat({
   noteIds,
   language,
   autoStart,
+  disabled,
   onStarted,
   onNewReview,
 }: {
@@ -328,6 +359,7 @@ function ReviewChat({
   noteIds: string[];
   language: string;
   autoStart: boolean;
+  disabled: boolean;
   onStarted: () => void;
   onNewReview: (start: boolean) => void;
 }) {
@@ -337,6 +369,7 @@ function ReviewChat({
   const [collapsed, setCollapsed] = useState(false);
   const { run, busy, error, dismiss } = useAiRequest();
   const send = (q: string) => {
+    if (disabled) return;
     setLastQuestion(q);
     return run(
       () =>

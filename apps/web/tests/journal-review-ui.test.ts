@@ -127,6 +127,28 @@ it("hides previous selection by default and fetches it only after opting in", as
   await render();
   expect(container.textContent).toContain("Previous selection ·");
 });
+it("keeps the current review visible and blocks actions while replacement context loads", async () => {
+  state.post.mockResolvedValue({ answer: "Existing review" });
+  await render();
+  await click("Start review");
+  const context = state.data!;
+  state.loading = true;
+  state.data = null;
+  state.filters = { entries: "10" };
+  await render();
+  expect(container.textContent).toContain("Current selection · 30 closed trades");
+  expect(container.textContent).toContain("Existing review");
+  expect(container.textContent).not.toContain("Loading review context");
+  const button = [...container.querySelectorAll("button")].find(
+    (b) => b.textContent === "New review",
+  )!;
+  expect(button.matches(":disabled")).toBe(true);
+  state.loading = false;
+  state.data = { ...context, id: "new-selection", current: { ...context.current, count: 10 } };
+  await render();
+  expect(container.textContent).toContain("Current selection · 10 closed trades");
+  expect(container.textContent).not.toContain("Existing review");
+});
 it("collapses only AI responses, preserving totals and conversation, and opens new answers", async () => {
   state.post.mockResolvedValue({ answer: "## Findings\nReview evidence" });
   await render();
