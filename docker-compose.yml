@@ -1,6 +1,6 @@
 services:
   journal:
-    image: ghcr.io/snailboob/traderjourney:1.0.0
+    image: ghcr.io/snailboob/traderjourney:latest
     container_name: traderjourney
     ports:
       - "3000:3000"
