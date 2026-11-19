@@ -1,6 +1,6 @@
 {
   "name": "@traderjourney/importers",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Statement and export importers for the trade journal: broker CSVs, MetaTrader HTML statements, and one-click migration from TradeZella and Tradervue.",
   "license": "MIT",

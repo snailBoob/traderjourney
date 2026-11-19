@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import {
   MDXEditor,
   type MDXEditorMethods,
@@ -97,7 +97,11 @@ export default function VisualNoteEditor({
 }) {
   const editor = useRef<MDXEditorMethods>(null);
   const lexical = useRef<LexicalEditor | null>(null);
-  const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
+  const [overlayContainer, setOverlayContainer] = useState<HTMLElement | null>(null);
+  const attachOverlayContainer = useCallback((element: HTMLDivElement | null) => {
+    // Escape scrollable editor panels, but keep overlays inside a modal's focus scope.
+    setOverlayContainer(element?.closest<HTMLElement>('[role="dialog"]') ?? null);
+  }, []);
   const [error, setError] = useState("");
   const current = useRef(value);
   // Link detection can normalize Markdown after mount. Only user edits may autosave it.
@@ -135,7 +139,7 @@ export default function VisualNoteEditor({
   }, [value]);
   return (
     <div
-      ref={setOverlayContainer}
+      ref={attachOverlayContainer}
       onDragOverCapture={(event) => {
         if (event.dataTransfer.types.includes("Files")) {
           event.preventDefault();
