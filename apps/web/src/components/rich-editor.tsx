@@ -197,6 +197,7 @@ function TemplateScopePicker({
 export interface RichEditorHandle {
   focus(position?: "start" | "end"): void;
   appendMarkdown?(markdown: string): void;
+  appendPlainText?(text: string): void;
   undo?(): void;
   redo?(): void;
 }
@@ -265,6 +266,7 @@ export function RichEditor({
     onModeChange?.(next ? "preview" : "edit");
   };
   useImperativeHandle(editorRef, () => ({
+    appendPlainText: (text) => visualRef.current?.appendPlainText?.(text),
     focus(position) {
       if (visual) {
         if (visualRef.current) visualRef.current.focus(position);

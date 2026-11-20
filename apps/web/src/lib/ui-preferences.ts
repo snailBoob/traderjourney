@@ -3,6 +3,7 @@ export const UI_PREFERENCE_KEYS = {
   reportOverviewLayout: "reportOverviewLayout",
   playbookOrder: "playbookOrder",
   accountOrder: "accountOrder",
+  accountSelection: "accountSelection",
   notebookFolderOrder: "notebookFolderOrder",
   privacyMode: "privacyMode",
   marketDataProvider: "marketDataProvider",

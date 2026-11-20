@@ -63,10 +63,10 @@ export function TagInput({
   const remove = (index: number) => onChange(value.filter((_, itemIndex) => itemIndex !== index));
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0">
       <div
         className={cn(
-          "flex min-h-9 w-full flex-wrap items-center gap-1 rounded-md border bg-background px-2 py-1 text-sm shadow-sm transition-colors",
+          "flex h-9 w-full items-center gap-1 overflow-x-auto whitespace-nowrap rounded-md border bg-background px-2 py-1 text-sm shadow-sm transition-colors [scrollbar-width:none]",
           open ? "border-ring ring-1 ring-ring" : "border-input",
         )}
         onClick={() => {
@@ -77,7 +77,7 @@ export function TagInput({
         {value.map((item, index) => (
           <span
             key={`${item}-${index}`}
-            className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-sm"
+            className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-sm"
           >
             <span className="truncate">{item}</span>
             <button
@@ -120,7 +120,7 @@ export function TagInput({
             }
           }}
           placeholder={value.length === 0 ? placeholder : ""}
-          className="min-w-[120px] flex-1 bg-transparent py-0.5 outline-none placeholder:text-muted-foreground"
+          className="min-w-12 flex-1 bg-transparent py-0.5 outline-none placeholder:text-muted-foreground"
         />
       </div>
 

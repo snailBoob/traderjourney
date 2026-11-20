@@ -1,7 +1,7 @@
 "use client";
 import { MobileFolderSelect } from "./mobile-folder-select";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check, FolderPlus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { VoiceNote } from "@/components/voice-note";
@@ -567,14 +567,42 @@ function NoteEditor({
   const [content, setContent] = useState(note.content);
   const [moveOpen, setMoveOpen] = useState(false);
   const editor = useRef<RichEditorHandle>(null);
+  const upload = useRef<(files: File[]) => void>(null);
+  const notePane = useRef<HTMLDivElement>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const { save: queueSave, status } = useAutosave(`/api/notes/${note.id}`, "PATCH", onChanged);
   const save = (title: string, content: string) => queueSave({ title, content });
 
+  useEffect(() => {
+    const routePaste = (event: ClipboardEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        document.querySelector('[role="dialog"]') ||
+        !event.clipboardData
+      )
+        return;
+      if (
+        !notePane.current?.contains(target) &&
+        target.closest('input, textarea, [contenteditable="true"]')
+      )
+        return;
+      const files = Array.from(event.clipboardData.files);
+      const text = event.clipboardData.getData("text/plain");
+      if (!files.length && (!text || target.closest('[contenteditable="true"]'))) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (files.length) upload.current?.(files);
+      else editor.current?.appendPlainText?.(text);
+    };
+    document.addEventListener("paste", routePaste, true);
+    return () => document.removeEventListener("paste", routePaste, true);
+  }, []);
+
   return (
-    <div className="space-y-4">
+    <div ref={notePane} className="space-y-4">
       <div className="flex items-center gap-1">
         <Input
           autoFocus={focusTitle}
@@ -732,7 +760,7 @@ function NoteEditor({
           {status}
         </p>
       )}
-      <Attachments type="note" id={note.id} layout="files" />
+      <Attachments type="note" id={note.id} layout="files" uploadRef={upload} />
     </div>
   );
 }

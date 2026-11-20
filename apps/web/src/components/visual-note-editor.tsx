@@ -107,6 +107,17 @@ export default function VisualNoteEditor({
   // Link detection can normalize Markdown after mount. Only user edits may autosave it.
   const interacted = useRef(false);
   useImperativeHandle(editorRef, () => ({
+    appendPlainText: (text) => {
+      interacted.current = true;
+      lexical.current?.update(
+        () => {
+          const root = $getRoot();
+          if (root.getTextContent().length) root.append($createParagraphNode());
+          root.selectEnd().insertRawText(text);
+        },
+        { discrete: true, tag: HISTORY_PUSH_TAG },
+      );
+    },
     focus: (position) =>
       editor.current?.focus(undefined, {
         defaultSelection: position === "end" ? "rootEnd" : "rootStart",

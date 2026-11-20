@@ -68,6 +68,7 @@ export function ScreenshotGrid({
   removed = new Set<string>(),
   allowPdf = false,
   showDownload = false,
+  singleRow = false,
 }: {
   attachments: { id: string; name: string; mime: string; size: number }[];
   onLightbox: (id: string) => void;
@@ -79,6 +80,7 @@ export function ScreenshotGrid({
   removed?: Set<string>;
   allowPdf?: boolean;
   showDownload?: boolean;
+  singleRow?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const add = (files: File[]) =>
@@ -98,7 +100,7 @@ export function ScreenshotGrid({
     if (files.length) add(files);
   };
   return (
-    <div className="space-y-3">
+    <div className={singleRow ? "min-w-0 space-y-3 [contain:inline-size]" : "space-y-3"}>
       {onAddPending && (
         <div
           className="rounded-lg border border-dashed p-3"
@@ -136,7 +138,13 @@ export function ScreenshotGrid({
           />
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
+      <div
+        className={
+          singleRow
+            ? "flex min-w-0 max-w-full gap-2 overflow-x-auto pb-1 [&>*]:shrink-0"
+            : "flex flex-wrap gap-2"
+        }
+      >
         {attachments
           .filter((a) => !removed.has(a.id))
           .map((a) => (
@@ -735,6 +743,7 @@ export function JournalQuickEditModal({
             <div className="grid min-w-0 gap-1 text-xs text-muted-foreground">
               <span>Files</span>
               <ScreenshotGrid
+                singleRow
                 allowPdf
                 attachments={data?.attachments ?? []}
                 pending={pending}

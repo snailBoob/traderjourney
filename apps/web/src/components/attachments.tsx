@@ -1,6 +1,6 @@
 "use client";
 import { HoverHint } from "./ui/tooltip";
-import { useRef, useState } from "react";
+import { useImperativeHandle, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import { Download, Paperclip, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,11 +22,13 @@ export function Attachments({
   id,
   actionContainer,
   layout,
+  uploadRef,
 }: {
   type: "trade" | "day" | "note" | "missed" | "prop-account" | "prop-entry";
   id: string;
   actionContainer?: HTMLElement | null;
   layout?: "files";
+  uploadRef?: Ref<(files: File[]) => void>;
 }) {
   const { data, error, refresh } = useApi<{
     attachments: Attachment[];
@@ -57,6 +59,7 @@ export function Attachments({
       refresh();
     }
   };
+  useImperativeHandle(uploadRef, () => upload);
   const uploadButton = (
     <Button
       type="button"

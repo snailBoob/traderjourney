@@ -163,7 +163,7 @@ export function ExpandedDay({
               Screenshots
             </div>
             <div className="mt-3">
-              <ScreenshotGrid attachments={data.attachments} onLightbox={onLightbox} />
+              <ScreenshotGrid singleRow attachments={data.attachments} onLightbox={onLightbox} />
             </div>
           </div>
         )}

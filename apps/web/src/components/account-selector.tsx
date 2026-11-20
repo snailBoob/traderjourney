@@ -5,6 +5,8 @@ import { Landmark, WalletCards } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
 import { cn } from "@/lib/utils";
 import { useApi } from "@/lib/use-api";
+import { saveUiPreference } from "@/lib/ui-preferences-client";
+import { publishHeaderNotice } from "@/lib/header-notice";
 import type { CapitalBasis } from "@/lib/capital";
 
 interface AccountOption {
@@ -35,10 +37,15 @@ export function AccountSelector() {
   const basis: CapitalBasis = params.get("capitalBasis") === "allocated" ? "allocated" : "total";
   const showBasis = data?.totalCapital !== null && data?.totalCapital !== undefined;
 
-  function selectAccount(id: string) {
+  async function selectAccount(id: string) {
     const next = new URLSearchParams(params.toString());
-    if (id === "all") next.delete("accounts");
-    else next.set("accounts", id);
+    next.set("accounts", id === "all" ? "" : id);
+    try {
+      await saveUiPreference("accountSelection", id === "all" ? [] : [id]);
+    } catch {
+      publishHeaderNotice("Could not save account selection.");
+      return;
+    }
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   }
 

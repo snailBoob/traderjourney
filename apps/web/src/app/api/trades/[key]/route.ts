@@ -9,6 +9,7 @@ import { getTradeByKey, rowToTrade } from "@/server/trades-query";
 import { getTimeZone } from "@/server/settings";
 import { fetchTradingViewSnapshot, validTradingViewUrl } from "@/lib/tradingview-snapshot";
 import { readExcursions, processExcursions } from "@/server/excursions";
+import { recognizePositionLevels } from "@/server/position-levels";
 
 type Params = { params: Promise<{ key: string }> };
 
@@ -183,7 +184,35 @@ export const PATCH = handler(async (request: Request, { params }: Params) => {
     snapshotToSave = await fetchTradingViewSnapshot(snapshotUrl);
   }
 
+  const levelFields = ["stopLoss", "profitTarget"] as const;
+  const levelImage =
+    snapshotUrl && levelFields.some((key) => (body[key] ?? row[key]) == null)
+      ? (snapshotToSave?.bytes ??
+        db
+          .select({ data: snapshots.data })
+          .from(snapshots)
+          .where(and(eq(snapshots.ownerType, "trade"), eq(snapshots.ownerId, decoded)))
+          .get()?.data)
+      : undefined;
+  const recognized = levelImage ? await recognizePositionLevels(levelImage) : {};
+  let filledStop = false;
   db.transaction((tx) => {
+    if (snapshotUrl) {
+      // Re-read after the download/OCR: an intervening manual edit wins.
+      const current = tx
+        .select({ stopLoss: trades.stopLoss, profitTarget: trades.profitTarget })
+        .from(trades)
+        .where(eq(trades.key, decoded))
+        .get();
+      for (const key of levelFields) {
+        if (body[key] != null) continue;
+        if (current?.[key] != null) delete patch[key];
+        else if (recognized[key] != null) {
+          patch[key] = recognized[key];
+          if (key === "stopLoss") filledStop = true;
+        }
+      }
+    }
     if (Object.keys(patch).length)
       tx.update(trades).set(patch).where(eq(trades.key, decoded)).run();
     if (body.tradingViewUrl !== undefined && (!snapshotUrl || replaceSnapshot)) {
@@ -216,7 +245,7 @@ export const PATCH = handler(async (request: Request, { params }: Params) => {
           .from(snapshots)
           .where(and(eq(snapshots.ownerType, "trade"), eq(snapshots.ownerId, decoded)))
           .get();
-  if (body.stopLoss !== undefined) {
+  if (body.stopLoss !== undefined || filledStop) {
     const current = getTradeByKey(decoded);
     if (current) await processExcursions(readExcursions([current]).tasks);
   }

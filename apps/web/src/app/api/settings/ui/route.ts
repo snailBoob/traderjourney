@@ -38,6 +38,15 @@ export const PATCH = handler(async (request: Request) => {
   );
   requireValue(typeof body.key === "string" && ALLOWED.has(body.key), "Unknown preference.");
   requireValue(body.value !== undefined, "Enter a preference value.");
+  if (body.key === "accountSelection") {
+    requireValue(
+      Array.isArray(body.value) &&
+        body.value.every(
+          (id) => typeof id === "string" && id.length > 0 && id.length <= 200 && !id.includes(","),
+        ),
+      "Invalid account selection.",
+    );
+  }
 
   let serialized: string;
   try {

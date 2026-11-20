@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { AccountSelector } from "./account-selector";
+import { saveUiPreference, useUiPreferences } from "@/lib/ui-preferences-client";
 import { postJson, useApi } from "@/lib/use-api";
 import { publishHeaderNotice, subscribeHeaderNotice } from "@/lib/header-notice";
 import { runSync, useSyncStatus, setSyncFailure } from "@/lib/sync-status";
@@ -128,6 +129,17 @@ export function FilterBar({
     "/api/settings",
   );
   const { data: accountStatus } = useApi<{ accounts: SyncAccountStatus[] }>("/api/accounts");
+  const { data: uiSettings } = useUiPreferences();
+  useEffect(() => {
+    if (!showFilters || params.has("accounts") || !accountStatus) return;
+    const saved = uiSettings?.preferences.accountSelection;
+    if (!Array.isArray(saved)) return;
+    const ids = saved.filter((id) => accountStatus.accounts.some((a) => a.id === id));
+    if (!ids.length) return;
+    const next = new URLSearchParams(params.toString());
+    next.set("accounts", ids.join(","));
+    router.replace(`${pathname}?${next}`, { scroll: false });
+  }, [showFilters, params, accountStatus, uiSettings, pathname, router]);
   const selectedAccountIds = params.get("accounts")?.split(",").filter(Boolean) ?? [];
   const selectedSingleAccountId = selectedAccountIds.length === 1 ? selectedAccountIds[0] : null;
   const accountOpenStatusUrl =
@@ -253,7 +265,7 @@ export function FilterBar({
     ([key, value]) =>
       key !== "capitalBasis" && typeof value === "string" && value.trim().length > 0,
   ).length;
-  const apply = () => {
+  const apply = async () => {
     const next = new URLSearchParams(params.toString());
     FILTER_KEYS.forEach((k) => next.delete(k));
     next.delete("missedRuleFollowed");
@@ -263,6 +275,13 @@ export function FilterBar({
     next.delete("dailyBias");
     next.delete("entries");
     for (const [k, v] of Object.entries(draft)) if (typeof v === "string" && v) next.set(k, v);
+    next.set("accounts", draft.accounts ?? "");
+    try {
+      await saveUiPreference("accountSelection", draft.accounts?.split(",").filter(Boolean) ?? []);
+    } catch {
+      publishHeaderNotice("Could not save account selection.");
+      return;
+    }
     router.replace(`${pathname}?${next}`);
     setOpen(false);
   };
