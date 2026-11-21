@@ -189,6 +189,7 @@ function Accounts() {
 
       <FilterBar
         title="Accounts"
+        accountList={data}
         showHeaderMessage={false}
         actions={<AddAccountDialog refresh={refresh} setMessage={setMessage} />}
       />

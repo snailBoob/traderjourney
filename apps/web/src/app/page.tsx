@@ -792,7 +792,7 @@ function EmptyState() {
             Import your first trades
           </Link>
           <Link
-            href="/settings"
+            href="/settings#demo-data"
             className="rounded-md border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
           >
             Demo data settings

@@ -96,8 +96,10 @@ type SyncAccountStatus = {
   connected: boolean;
 };
 type AccountOpenStatus = { accountId: string; positions: number; openOrders: number };
+type AccountList = { accounts: SyncAccountStatus[] };
 export function FilterBar({
   title,
+  accountList,
   actions,
   primaryAction,
   scope = "journal",
@@ -107,6 +109,7 @@ export function FilterBar({
   showHeaderMessage = true,
 }: {
   title: string;
+  accountList?: AccountList | null;
   actions?: React.ReactNode;
   primaryAction?: React.ReactNode;
   scope?: FilterScope;
@@ -128,7 +131,10 @@ export function FilterBar({
   const { data: headerSettings } = useApi<{ timeZone: string; headerMessage: string }>(
     "/api/settings",
   );
-  const { data: accountStatus } = useApi<{ accounts: SyncAccountStatus[] }>("/api/accounts");
+  const { data: fetchedAccountList } = useApi<AccountList>(
+    accountList === undefined ? "/api/accounts" : null,
+  );
+  const accountStatus = accountList ?? fetchedAccountList;
   const { data: uiSettings } = useUiPreferences();
   useEffect(() => {
     if (!showFilters || params.has("accounts") || !accountStatus) return;
@@ -142,6 +148,7 @@ export function FilterBar({
   }, [showFilters, params, accountStatus, uiSettings, pathname, router]);
   const selectedAccountIds = params.get("accounts")?.split(",").filter(Boolean) ?? [];
   const selectedSingleAccountId = selectedAccountIds.length === 1 ? selectedAccountIds[0] : null;
+  const hasBrokerAccount = accountStatus?.accounts.some((account) => account.kind === "sync");
   const accountOpenStatusUrl =
     selectedAccountIds.length === 0
       ? "/api/account-open-status"
@@ -149,7 +156,7 @@ export function FilterBar({
         ? `/api/account-open-status?accountId=${encodeURIComponent(selectedSingleAccountId)}`
         : "";
   const { data: accountOpenStatus } = useApi<{ status: AccountOpenStatus | null }>(
-    accountOpenStatusUrl,
+    hasBrokerAccount ? accountOpenStatusUrl : null,
   );
   const hasConnectedBroker =
     accountStatus?.accounts.some((account) => account.kind === "sync" && account.connected) ??

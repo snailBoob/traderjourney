@@ -13,7 +13,7 @@ export function DemoSettings() {
   const [failure, setFailure] = useState("");
   const active = data?.active && data.current;
   return (
-    <Card>
+    <Card id="demo-data" className="scroll-mt-24">
       <CardHeader>
         <CardTitle>Demo data</CardTitle>
       </CardHeader>
