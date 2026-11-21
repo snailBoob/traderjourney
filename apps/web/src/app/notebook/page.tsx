@@ -2,7 +2,17 @@
 import { MobileFolderSelect } from "./mobile-folder-select";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, FolderPlus, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Filter,
+  FolderPlus,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { FilterBar } from "@/components/filter-bar";
 import { VoiceNote } from "@/components/voice-note";
 import { Button } from "@/components/ui/button";
@@ -19,6 +29,7 @@ import {
   DndContext,
   PointerSensor,
   closestCenter,
+  pointerWithin,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -63,22 +74,78 @@ function Notebook() {
   const [focusTitleId, setFocusTitleId] = useState<string | null>(null);
   const [createNoteError, setCreateNoteError] = useState("");
   const [creatingNote, setCreatingNote] = useState(false);
-  const [draggedNote, setDraggedNote] = useState<NoteRow | null>(null);
   const [dropFolder, setDropFolder] = useState<string | null>(null);
   const [moveError, setMoveError] = useState("");
   const [moving, setMoving] = useState(false);
-  const { data: uiSettings } = useUiPreferences();
+  const { data: uiSettings, error: settingsError } = useUiPreferences();
+  const [noteOrder, setNoteOrder] = useState<string[] | "oldest" | "newest">();
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [preferenceError, setPreferenceError] = useState("");
+  const selectionWrites = useRef(Promise.resolve());
+  const lastSelection = useRef<string | undefined>(undefined);
   const [folderOrder, setFolderOrder] = useState<string[] | null>(null);
   const [ordering, setOrdering] = useState(false);
   const [orderError, setOrderError] = useState("");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const { data, refresh } = useApi<{ notes: NoteRow[]; folders: FolderRow[] }>(
-    `/api/notes?folder=${folder}&q=${encodeURIComponent(search)}`,
+  const { data, refresh } = useApi<{ notes: NoteRow[]; folders: FolderRow[] }>("/api/notes");
+  const order = noteOrder ?? uiSettings?.preferences.notebookNoteOrder;
+  const allNotes =
+    order === "oldest"
+      ? [...(data?.notes ?? [])].reverse()
+      : orderedItems(data?.notes ?? [], order);
+  const query = search.toLowerCase();
+  const visibleNotes = allNotes.filter(
+    (note) =>
+      (folder === "all" || note.folderId === folder) &&
+      (note.title.toLowerCase().includes(query) || note.content.toLowerCase().includes(query)),
   );
+  const preferredId =
+    selectedId === undefined ? uiSettings?.preferences.notebookCurrentNote : selectedId;
   const selected =
-    (selectedId === undefined
-      ? data?.notes[0]
-      : data?.notes.find((note) => note.id === selectedId)) ?? null;
+    (!uiSettings && !settingsError) || selectedId === null
+      ? null
+      : (visibleNotes.find((note) => note.id === preferredId) ??
+        (selectedId === undefined ? visibleNotes[0] : null));
+  const currentId = selected?.id;
+  useEffect(() => {
+    if (!currentId || !uiSettings) return;
+    setSelectedId(currentId);
+    if ((lastSelection.current ?? uiSettings.preferences.notebookCurrentNote) === currentId) return;
+    lastSelection.current = currentId;
+    selectionWrites.current = selectionWrites.current.then(async () => {
+      try {
+        await saveUiPreference("notebookCurrentNote", currentId);
+      } catch {
+        lastSelection.current = undefined;
+        setPreferenceError("Could not save the current note.");
+      }
+    });
+  }, [currentId, uiSettings]);
+  const changeOrder = async (next: NonNullable<typeof noteOrder>) => {
+    if (savingOrder || !uiSettings) return;
+    setSavingOrder(true);
+    setPreferenceError("");
+    setNoteOrder(next);
+    try {
+      await saveUiPreference("notebookNoteOrder", next);
+    } catch {
+      setNoteOrder(noteOrder);
+      setPreferenceError("Could not save the note order.");
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+  const reorderNotes = (fromId: string, toId: string) => {
+    const ids = visibleNotes.map((note) => note.id);
+    const from = ids.indexOf(fromId),
+      to = ids.indexOf(toId);
+    if (from < 0 || to < 0 || from === to) return;
+    const moved = arrayMove(ids, from, to);
+    const visible = new Set(ids);
+    let i = 0;
+    void changeOrder(allNotes.map((note) => (visible.has(note.id) ? moved[i++]! : note.id)));
+  };
+  const sortLabel = `Sort by last modified: ${order === "oldest" ? "newest" : "oldest"} first`;
   const orderedFolders = orderedItems(
     (data?.folders ?? []).filter((item) => item.id !== "all"),
     folderOrder ?? uiSettings?.preferences.notebookFolderOrder,
@@ -286,29 +353,60 @@ function Notebook() {
           {createNoteError}
         </p>
       )}
-      <div className="notebook-workspace" data-note-open={Boolean(selected)}>
-        <div className="notebook-folders min-w-0 space-y-0.5 overflow-y-auto border-r p-2">
-          <button
-            className={cn(
-              "w-full rounded-md px-2.5 py-1.5 text-left text-sm",
-              folder === "all"
-                ? "bg-accent font-medium"
-                : "text-muted-foreground hover:bg-accent/60",
+      <DndContext
+        sensors={sensors}
+        collisionDetection={(args) =>
+          String(args.active.id).startsWith("note:")
+            ? pointerWithin(args)
+            : closestCenter({
+                ...args,
+                droppableContainers: args.droppableContainers.filter(
+                  (c) => !String(c.id).startsWith("note:"),
+                ),
+              })
+        }
+        onDragOver={({ active, over }) =>
+          setDropFolder(
+            String(active.id).startsWith("note:") && over && !String(over.id).startsWith("note:")
+              ? String(over.id)
+              : null,
+          )
+        }
+        onDragCancel={() => setDropFolder(null)}
+        onDragEnd={(event) => {
+          setDropFolder(null);
+          const { active, over } = event;
+          if (!over) return;
+          if (!String(active.id).startsWith("note:")) {
+            void reorderFolders(event);
+            return;
+          }
+          const noteId = String(active.id).slice(5);
+          if (String(over.id).startsWith("note:")) reorderNotes(noteId, String(over.id).slice(5));
+          else {
+            const note = visibleNotes.find((n) => n.id === noteId);
+            if (note) void moveNote(note, String(over.id)).catch(() => {});
+          }
+        }}
+      >
+        <div className="notebook-workspace" data-note-open={Boolean(selected)}>
+          <div className="notebook-folders min-w-0 space-y-0.5 overflow-y-auto border-r p-2">
+            <button
+              className={cn(
+                "w-full rounded-md px-2.5 py-1.5 text-left text-sm",
+                folder === "all"
+                  ? "bg-accent font-medium"
+                  : "text-muted-foreground hover:bg-accent/60",
+              )}
+              onClick={() => selectFolder("all")}
+            >
+              All Notes
+            </button>
+            {orderError && (
+              <p role="alert" className="px-2 text-sm text-destructive">
+                {orderError}
+              </p>
             )}
-            onClick={() => selectFolder("all")}
-          >
-            All Notes
-          </button>
-          {orderError && (
-            <p role="alert" className="px-2 text-sm text-destructive">
-              {orderError}
-            </p>
-          )}
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={(event) => void reorderFolders(event)}
-          >
             <SortableContext
               items={orderedFolders.map((item) => item.id)}
               strategy={verticalListSortingStrategy}
@@ -364,25 +462,7 @@ function Notebook() {
                   <SortableFolder
                     key={f.id}
                     id={f.id}
-                    disabled={
-                      ordering || !uiSettings || Boolean(draggedNote) || Boolean(editingFolderId)
-                    }
-                    onDragOver={(event) => {
-                      if (!draggedNote || moving || draggedNote.folderId === f.id) return;
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      setDropFolder(f.id);
-                    }}
-                    onDragLeave={(event) => {
-                      if (!event.currentTarget.contains(event.relatedTarget as Node))
-                        setDropFolder(null);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      setDropFolder(null);
-                      if (draggedNote) void moveNote(draggedNote, f.id).catch(() => {});
-                      setDraggedNote(null);
-                    }}
+                    disabled={ordering || !uiSettings || Boolean(editingFolderId)}
                     className={cn(
                       "group relative rounded-md px-1",
                       dropFolder === f.id && "ring-2 ring-ring bg-accent",
@@ -427,121 +507,139 @@ function Notebook() {
                 );
               })}
             </SortableContext>
-          </DndContext>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-muted-foreground"
-            onClick={() => {
-              setFolderError("");
-              setFolderOpen(true);
-            }}
-          >
-            <FolderPlus />
-            New folder
-          </Button>
-        </div>
-
-        <div className="notebook-list min-w-0 overflow-y-auto border-r">
-          <div className="sticky top-0 z-[1] space-y-2 border-b bg-background p-2">
-            {moveError && (
-              <p role="alert" className="text-sm text-destructive">
-                {moveError}
-              </p>
-            )}
-            <div className="flex min-w-0 items-center gap-2 xl:hidden">
-              <MobileFolderSelect
-                value={folder}
-                folders={orderedFolders}
-                onSelect={selectFolder}
-                onReorder={(event) => void reorderFolders(event)}
-                disabled={ordering || !uiSettings}
-                error={orderError}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0"
-                aria-label="New folder"
-                onClick={() => {
-                  setFolderError("");
-                  setFolderOpen(true);
-                }}
-              >
-                <FolderPlus />
-              </Button>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search notes"
-                className="pl-8"
-              />
-            </div>
-          </div>
-          {data?.notes.length === 0 && (
-            <p className="p-6 text-center text-sm text-muted-foreground">No notes here yet.</p>
-          )}
-          {data?.notes.map((note) => (
-            <button
-              key={note.id}
-              draggable={!moving}
-              onDragStart={(event) => {
-                setDraggedNote(note);
-                event.dataTransfer.setData("text/plain", note.id);
-                event.dataTransfer.effectAllowed = "move";
-              }}
-              onDragEnd={() => {
-                setDraggedNote(null);
-                setDropFolder(null);
-              }}
-              className={cn(
-                "block w-full border-b px-3 py-2.5 text-left hover:bg-accent/40",
-                selected?.id === note.id && "bg-accent/60",
-              )}
-              onClick={() => setSelectedId(note.id)}
-            >
-              <div className="truncate text-sm font-medium">{note.title || "Untitled"}</div>
-              <div className="truncate text-xs text-muted-foreground">
-                {note.updatedAt.slice(0, 10)} · {note.content.slice(0, 60) || "empty"}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <div className="notebook-editor min-w-0 overflow-y-auto p-3 sm:p-4">
-          {selected && (
             <Button
-              type="button"
               variant="ghost"
               size="sm"
-              className="mb-3 md:hidden"
-              onClick={() => setSelectedId(null)}
+              className="w-full justify-start text-muted-foreground"
+              onClick={() => {
+                setFolderError("");
+                setFolderOpen(true);
+              }}
             >
-              <ArrowLeft />
-              Back to notes
+              <FolderPlus />
+              New folder
             </Button>
-          )}
-          {selected ? (
-            <NoteEditor
-              key={selected.id}
-              note={selected}
-              focusTitle={focusTitleId === selected.id}
-              onTitleFocused={() => setFocusTitleId(null)}
-              folders={data?.folders ?? []}
-              onChanged={refresh}
-              onMove={(folderId) => moveNote(selected, folderId)}
-              moving={moving}
-            />
-          ) : (
-            <p className="py-24 text-center text-sm text-muted-foreground">
-              Select or create a note.
-            </p>
-          )}
+          </div>
+
+          <div className="notebook-list min-w-0 overflow-y-auto border-r">
+            <div className="sticky top-0 z-[1] space-y-2 border-b bg-background p-2">
+              {moveError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {moveError}
+                </p>
+              )}
+              <div className="flex min-w-0 items-center gap-2 xl:hidden">
+                <MobileFolderSelect
+                  value={folder}
+                  folders={orderedFolders}
+                  onSelect={selectFolder}
+                  onReorder={(event) => void reorderFolders(event)}
+                  disabled={ordering || !uiSettings}
+                  error={orderError}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  aria-label="New folder"
+                  onClick={() => {
+                    setFolderError("");
+                    setFolderOpen(true);
+                  }}
+                >
+                  <FolderPlus />
+                </Button>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search notes"
+                    className="pl-8"
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  disabled={!uiSettings || savingOrder}
+                  title={sortLabel}
+                  aria-label={sortLabel}
+                  onClick={() => void changeOrder(order === "oldest" ? "newest" : "oldest")}
+                >
+                  <Filter />
+                </Button>
+              </div>
+              {(preferenceError || settingsError) && (
+                <p role="alert" className="text-sm text-destructive">
+                  {preferenceError || settingsError}
+                </p>
+              )}
+            </div>
+            {data && visibleNotes.length === 0 && (
+              <p className="p-6 text-center text-sm text-muted-foreground">No notes here yet.</p>
+            )}
+            <SortableContext
+              items={visibleNotes.map((note) => `note:${note.id}`)}
+              strategy={verticalListSortingStrategy}
+            >
+              {visibleNotes.map((note) => (
+                <SortableFolder
+                  key={note.id}
+                  id={`note:${note.id}`}
+                  disabled={moving || savingOrder || !uiSettings}
+                >
+                  <button
+                    className={cn(
+                      "block w-full min-w-0 border-b px-3 py-2.5 text-left hover:bg-accent/40",
+                      selected?.id === note.id && "bg-accent/60",
+                    )}
+                    onClick={() => setSelectedId(note.id)}
+                  >
+                    <div className="truncate text-sm font-medium">{note.title || "Untitled"}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {note.updatedAt.slice(0, 10)} · {note.content.slice(0, 60) || "empty"}
+                    </div>
+                  </button>
+                </SortableFolder>
+              ))}
+            </SortableContext>
+          </div>
+
+          <div className="notebook-editor min-w-0 overflow-y-auto p-3 sm:p-4">
+            {selected && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mb-3 md:hidden"
+                onClick={() => setSelectedId(null)}
+              >
+                <ArrowLeft />
+                Back to notes
+              </Button>
+            )}
+            {selected ? (
+              <NoteEditor
+                key={selected.id}
+                note={selected}
+                focusTitle={focusTitleId === selected.id}
+                onTitleFocused={() => setFocusTitleId(null)}
+                folders={data?.folders ?? []}
+                onChanged={refresh}
+                onMove={(folderId) => moveNote(selected, folderId)}
+                moving={moving}
+              />
+            ) : (
+              <p className="py-24 text-center text-sm text-muted-foreground">
+                Select or create a note.
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      </DndContext>
     </div>
   );
 }
