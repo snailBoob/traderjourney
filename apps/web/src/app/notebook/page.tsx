@@ -60,7 +60,7 @@ export default function NotebookPage() {
 }
 
 function Notebook() {
-  const [folder, setFolder] = useState("all");
+  const [localFolder, setLocalFolder] = useState<string>();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined);
   const [folderOpen, setFolderOpen] = useState(false);
@@ -89,6 +89,8 @@ function Notebook() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const { data, refresh } = useApi<{ notes: NoteRow[]; folders: FolderRow[] }>("/api/notes");
   const order = noteOrder ?? uiSettings?.preferences.notebookNoteOrder;
+  const savedFolder = uiSettings?.preferences.notebookCurrentFolder;
+  const folder = localFolder ?? data?.folders.find((item) => item.id === savedFolder)?.id ?? "all";
   const allNotes =
     order === "oldest"
       ? [...(data?.notes ?? [])].reverse()
@@ -171,7 +173,14 @@ function Notebook() {
     }
   };
   const selectFolder = (next: string) => {
-    setFolder(next);
+    setLocalFolder(next);
+    selectionWrites.current = selectionWrites.current.then(async () => {
+      try {
+        await saveUiPreference("notebookCurrentFolder", next);
+      } catch {
+        setPreferenceError("Could not save the current folder.");
+      }
+    });
     setSelectedId(undefined);
   };
   const moveNote = async (note: NoteRow, folderId: string) => {
@@ -195,7 +204,7 @@ function Notebook() {
     setCreateNoteError("");
     try {
       const result = await postJson<{ id: string }>("/api/notes", {
-        folderId: folder === "all" ? "my-notes" : folder,
+        folderId: folder === "all" ? undefined : folder,
         title: "New note",
       });
       setSearch("");
@@ -234,7 +243,7 @@ function Notebook() {
   const deleteFolder = async (folderId: string) => {
     try {
       await postJson("/api/folders", { id: folderId }, "DELETE");
-      if (folder === folderId) setFolder("all");
+      if (folder === folderId) selectFolder("all");
       setDeletingFolderId(null);
       setSelectedId(null);
       refresh();
@@ -249,7 +258,7 @@ function Notebook() {
     setFolderError("");
     try {
       const result = await postJson<{ id: string }>("/api/folders", { name: folderName });
-      setFolder(result.id);
+      selectFolder(result.id);
       setSelectedId(null);
       setSearch("");
       refresh();

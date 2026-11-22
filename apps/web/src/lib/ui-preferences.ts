@@ -5,6 +5,7 @@ export const UI_PREFERENCE_KEYS = {
   accountOrder: "accountOrder",
   accountSelection: "accountSelection",
   notebookFolderOrder: "notebookFolderOrder",
+  notebookCurrentFolder: "notebookCurrentFolder",
   notebookNoteOrder: "notebookNoteOrder",
   notebookCurrentNote: "notebookCurrentNote",
   privacyMode: "privacyMode",

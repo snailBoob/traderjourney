@@ -58,7 +58,10 @@ export const POST = handler(async (request: Request) => {
   db.insert(notes)
     .values({
       id,
-      folderId: body.folderId ?? "my-notes",
+      folderId:
+        body.folderId ??
+        db.select({ id: folders.id }).from(folders).where(eq(folders.id, "my-notes")).get()?.id ??
+        "all",
       title: body.title ?? "",
       content: body.content ?? "",
       tagsJson: body.tags ? JSON.stringify(body.tags) : null,
