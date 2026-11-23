@@ -2,10 +2,13 @@ import { cookies } from "next/headers";
 import { AUTH_COOKIE, passwordConfigured, sessionToken, verifyPassword } from "@/server/auth";
 import { bad, handler, ok } from "@/server/api";
 
-export const DELETE = handler(async () => {
-  (await cookies()).delete(AUTH_COOKIE);
-  return ok({ authenticated: false });
-}, { public: true });
+export const DELETE = handler(
+  async () => {
+    (await cookies()).delete(AUTH_COOKIE);
+    return ok({ authenticated: false });
+  },
+  { public: true },
+);
 
 export const POST = handler(
   async (request: Request) => {

@@ -58,7 +58,10 @@ interface FolderRow {
 
 const NotePreview = memo(function NotePreview({ content }: { content: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm, remarkRepairSpacedEmphasis]} rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeNotePreview]}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkRepairSpacedEmphasis]}
+      rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeNotePreview]}
+    >
       {content}
     </ReactMarkdown>
   );

@@ -176,7 +176,9 @@ function SortableNavLink({
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { data: security } = useApi<{ configured: boolean }>(pathname === "/login" ? null : "/api/settings/security");
+  const { data: security } = useApi<{ configured: boolean }>(
+    pathname === "/login" ? null : "/api/settings/security",
+  );
   const [logoutError, setLogoutError] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
   async function logout() {
@@ -190,16 +192,29 @@ export function Shell({ children }: { children: React.ReactNode }) {
       setLoggingOut(false);
     }
   }
-  const logoutButton = (iconOnly = false) => security?.configured && (
-    <div className="border-t pt-1">
-      <Button type="button" size="sm" variant="ghost" aria-label="Log out" title="Log out"
-        className={iconOnly ? "h-9 w-9 p-0" : "w-full justify-start gap-2"}
-        onClick={logout} disabled={loggingOut}>
-        <LogOut />{!iconOnly && "Log out"}
-      </Button>
-      {logoutError && <p role="alert" className="text-xs text-destructive">{logoutError}</p>}
-    </div>
-  );
+  const logoutButton = (iconOnly = false) =>
+    security?.configured && (
+      <div className="border-t pt-1">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          aria-label="Log out"
+          title="Log out"
+          className={iconOnly ? "h-9 w-9 p-0" : "w-full justify-start gap-2"}
+          onClick={logout}
+          disabled={loggingOut}
+        >
+          <LogOut />
+          {!iconOnly && "Log out"}
+        </Button>
+        {logoutError && (
+          <p role="alert" className="text-xs text-destructive">
+            {logoutError}
+          </p>
+        )}
+      </div>
+    );
   const search = useSearchParams();
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
