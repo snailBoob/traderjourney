@@ -25,6 +25,26 @@ interface NoteNode {
   position?: { start: { offset?: number }; end: { offset?: number } };
 }
 
+/** Flatten sanitized note markup before applying the list's character limit. */
+export function rehypeNotePreview() {
+  interface PreviewNode extends NoteNode {
+    tagName?: string;
+    properties?: { alt?: unknown };
+    children?: PreviewNode[];
+  }
+  function text(node: PreviewNode): string {
+    if (node.type === "text") return node.value ?? "";
+    if (node.tagName === "img") return String(node.properties?.alt ?? "");
+    if (node.tagName === "br") return " ";
+    const content = node.children?.map(text).join("") ?? "";
+    return /^(p|div|li|td|th|h[1-6])$/.test(node.tagName ?? "") ? ` ${content} ` : content;
+  }
+  return (tree: PreviewNode) => {
+    const preview = text(tree).replace(/\s+/g, " ").trim().slice(0, 60);
+    tree.children = [{ type: "text", value: preview || "empty" }];
+  };
+}
+
 /** Repair the old toolbar's spaced delimiters at render time; never rewrite saved notes.
  * Only plain text is eligible. Code, escaped stars and already parsed formatting stay intact.
  */

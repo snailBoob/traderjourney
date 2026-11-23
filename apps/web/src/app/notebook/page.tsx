@@ -1,7 +1,12 @@
 "use client";
 import { MobileFolderSelect } from "./mobile-folder-select";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { memo, Suspense, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
+import { rehypeNotePreview, remarkRepairSpacedEmphasis } from "@/lib/note-formatting";
 import {
   ArrowLeft,
   Check,
@@ -50,6 +55,14 @@ interface FolderRow {
   name: string;
   kind: string;
 }
+
+const NotePreview = memo(function NotePreview({ content }: { content: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm, remarkRepairSpacedEmphasis]} rehypePlugins={[rehypeRaw, rehypeSanitize, rehypeNotePreview]}>
+      {content}
+    </ReactMarkdown>
+  );
+});
 
 export default function NotebookPage() {
   return (
@@ -609,7 +622,7 @@ function Notebook() {
                   >
                     <div className="truncate text-sm font-medium">{note.title || "Untitled"}</div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {note.updatedAt.slice(0, 10)} · {note.content.slice(0, 60) || "empty"}
+                      {note.updatedAt.slice(0, 10)} · <NotePreview content={note.content} />
                     </div>
                   </button>
                 </SortableFolder>

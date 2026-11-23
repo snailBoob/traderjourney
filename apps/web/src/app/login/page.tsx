@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,6 @@ import { BrandLogo } from "@/components/brand-logo";
 import { postJson } from "@/lib/use-api";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -17,8 +15,8 @@ export default function LoginPage() {
     event.preventDefault();
     try {
       await postJson("/api/auth", { password });
-      router.push("/");
-      router.refresh();
+      // Reload shared providers so preferences are fetched with the new session.
+      window.location.replace("/");
     } catch {
       setError("Wrong password");
     }

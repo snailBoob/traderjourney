@@ -13,7 +13,7 @@ import {
 } from "@/lib/security-settings";
 
 export function SecuritySettings() {
-  const { data, error, refresh } = useApi<Settings>("/api/settings/security");
+  const { data, error } = useApi<Settings>("/api/settings/security");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -46,7 +46,7 @@ export function SecuritySettings() {
       if (action === "set") window.location.assign("/login");
       else {
         setSaved("Password removed. Login is no longer required.");
-        refresh();
+        window.dispatchEvent(new Event("tj:api-refresh"));
       }
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Could not save password settings.");
