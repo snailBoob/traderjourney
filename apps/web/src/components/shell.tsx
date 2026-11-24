@@ -31,6 +31,7 @@ import { postJson, useApi } from "@/lib/use-api";
 import { BrandLogo } from "@/components/brand-logo";
 import { subscribeHeaderNotice } from "@/lib/header-notice";
 import { PrivacyToggle } from "./privacy";
+import { useMcpAccess } from "./use-mcp-access";
 import { ThemeToggle } from "./theme";
 import { PageTransition } from "./page-transition";
 import { Button } from "./ui/button";
@@ -176,6 +177,7 @@ function SortableNavLink({
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const mcpToggle = useMcpAccess(pathname !== "/login");
   const { data: security } = useApi<{ configured: boolean }>(
     pathname === "/login" ? null : "/api/settings/security",
   );
@@ -513,6 +515,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <div className="space-y-2 border-t p-3">
                 <ThemeToggle />
                 <PrivacyToggle />
+                {mcpToggle()}
                 {logoutButton()}
               </div>
               {footer}
@@ -572,6 +575,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="w-full space-y-1">
             <ThemeToggle iconOnly={sidebarCollapsed} />
             <PrivacyToggle iconOnly={sidebarCollapsed} />
+            {mcpToggle(sidebarCollapsed)}
             {logoutButton(sidebarCollapsed)}
           </div>
         </div>

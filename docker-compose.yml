@@ -11,5 +11,7 @@ services:
       # JOURNAL_PASSWORD: change-me
       # Optional: stable encryption secret for broker credentials at rest
       # JOURNAL_SECRET: change-me-too
+      # Optional: enable read-only MCP with a 64-character hex token from .env
+      JOURNAL_MCP_TOKEN: ${JOURNAL_MCP_TOKEN:-}
       JOURNAL_DATA_DIR: /data
     restart: unless-stopped

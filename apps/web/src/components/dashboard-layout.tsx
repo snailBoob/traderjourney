@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   DndContext,
   DragOverlay,
@@ -107,6 +108,7 @@ export function DashboardLayout({
   storageKey = DASHBOARD_LAYOUT_KEY,
   serverPreferenceKey = "dashboardLayout" as UiPreferenceKey,
   customizerTitle = "Dashboard cards",
+  customizeTarget,
   showSavedLayouts = true,
   toolbarContent,
   className = "space-y-3 p-4",
@@ -116,6 +118,7 @@ export function DashboardLayout({
   storageKey?: string;
   serverPreferenceKey?: UiPreferenceKey;
   customizerTitle?: string;
+  customizeTarget?: HTMLElement | null;
   showSavedLayouts?: boolean;
   toolbarContent?: ReactNode;
   className?: string;
@@ -366,121 +369,128 @@ export function DashboardLayout({
   if (!ready)
     return <div className="p-4 text-sm text-muted-foreground">Loading dashboard layout…</div>;
 
+  const customizer = (
+    <DashboardCustomizer
+      title={customizerTitle}
+      widgets={widgets}
+      hidden={current.hidden}
+      open={edit}
+      onOpenChange={setEdit}
+      onVisibilityChange={(id, visible) => {
+        update((previous) => {
+          const layout = normalizeArrangement(previous.current, ids);
+          return {
+            ...previous,
+            current: {
+              ...layout,
+              hidden: visible
+                ? layout.hidden.filter((hiddenId) => hiddenId !== id)
+                : [...layout.hidden, id],
+            },
+          };
+        });
+      }}
+      onShowAll={showAll}
+      onRestore={() =>
+        update(
+          (previous) => ({ ...previous, current: initial }),
+          "Original card order restored. All cards are shown.",
+        )
+      }
+    />
+  );
+
   return (
     <div className={className}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {showSavedLayouts && (
-            <DashboardSavedLayouts
-              layouts={state.layouts}
-              current={current}
-              layoutOrder={state.layoutOrder}
-              ids={ids}
-              onLoad={(name, arrangement) =>
-                update(
-                  (previous) => ({
-                    ...previous,
-                    current: normalizeArrangement(arrangement, ids),
-                  }),
-                  `${name} loaded`,
-                )
-              }
-              onSave={(name) => {
-                if (stateRef.current.layouts[name]) return false;
-                return update(
-                  (previous) => ({
-                    ...previous,
-                    layouts: {
-                      ...previous.layouts,
-                      [name]: normalizeArrangement(previous.current, ids),
-                    },
-                    layoutOrder: previous.layoutOrder.includes(name)
-                      ? previous.layoutOrder
-                      : [...previous.layoutOrder, name],
-                  }),
-                  `${name} saved`,
-                );
-              }}
-              onRename={(name, nextName) => {
-                if (name === nextName) return true;
-                if (stateRef.current.layouts[nextName]) return false;
-                return update((previous) => {
-                  const layouts = { ...previous.layouts, [nextName]: previous.layouts[name]! };
-                  delete layouts[name];
-                  return {
-                    ...previous,
-                    layouts,
-                    layoutOrder: previous.layoutOrder.map((entry) =>
-                      entry === name ? nextName : entry,
-                    ),
-                  };
-                }, `${nextName} renamed`);
-              }}
-              onReplace={(name) =>
-                update(
-                  (previous) => ({
-                    ...previous,
-                    layouts: {
-                      ...previous.layouts,
-                      [name]: normalizeArrangement(previous.current, ids),
-                    },
-                  }),
-                  `${name} updated`,
-                )
-              }
-              onDelete={(name) =>
-                update((previous) => {
-                  const layouts = { ...previous.layouts };
-                  delete layouts[name];
-                  return {
-                    ...previous,
-                    layouts,
-                    layoutOrder: previous.layoutOrder.filter((entry) => entry !== name),
-                  };
-                }, `${name} deleted`)
-              }
-              onReorder={(order) =>
-                update(
-                  (previous) => ({ ...previous, layoutOrder: order }),
-                  "Saved layout order updated",
-                )
-              }
-            />
-          )}
-          {toolbarContent}
-          <span role="status" className="sr-only">
-            {feedback}
-          </span>
+      {customizeTarget && createPortal(customizer, customizeTarget)}
+      {(!customizeTarget || showSavedLayouts || toolbarContent) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {showSavedLayouts && (
+              <DashboardSavedLayouts
+                layouts={state.layouts}
+                current={current}
+                layoutOrder={state.layoutOrder}
+                ids={ids}
+                onLoad={(name, arrangement) =>
+                  update(
+                    (previous) => ({
+                      ...previous,
+                      current: normalizeArrangement(arrangement, ids),
+                    }),
+                    `${name} loaded`,
+                  )
+                }
+                onSave={(name) => {
+                  if (stateRef.current.layouts[name]) return false;
+                  return update(
+                    (previous) => ({
+                      ...previous,
+                      layouts: {
+                        ...previous.layouts,
+                        [name]: normalizeArrangement(previous.current, ids),
+                      },
+                      layoutOrder: previous.layoutOrder.includes(name)
+                        ? previous.layoutOrder
+                        : [...previous.layoutOrder, name],
+                    }),
+                    `${name} saved`,
+                  );
+                }}
+                onRename={(name, nextName) => {
+                  if (name === nextName) return true;
+                  if (stateRef.current.layouts[nextName]) return false;
+                  return update((previous) => {
+                    const layouts = { ...previous.layouts, [nextName]: previous.layouts[name]! };
+                    delete layouts[name];
+                    return {
+                      ...previous,
+                      layouts,
+                      layoutOrder: previous.layoutOrder.map((entry) =>
+                        entry === name ? nextName : entry,
+                      ),
+                    };
+                  }, `${nextName} renamed`);
+                }}
+                onReplace={(name) =>
+                  update(
+                    (previous) => ({
+                      ...previous,
+                      layouts: {
+                        ...previous.layouts,
+                        [name]: normalizeArrangement(previous.current, ids),
+                      },
+                    }),
+                    `${name} updated`,
+                  )
+                }
+                onDelete={(name) =>
+                  update((previous) => {
+                    const layouts = { ...previous.layouts };
+                    delete layouts[name];
+                    return {
+                      ...previous,
+                      layouts,
+                      layoutOrder: previous.layoutOrder.filter((entry) => entry !== name),
+                    };
+                  }, `${name} deleted`)
+                }
+                onReorder={(order) =>
+                  update(
+                    (previous) => ({ ...previous, layoutOrder: order }),
+                    "Saved layout order updated",
+                  )
+                }
+              />
+            )}
+            {toolbarContent}
+          </div>
+          {!customizeTarget && customizer}
         </div>
-        <DashboardCustomizer
-          title={customizerTitle}
-          widgets={widgets}
-          hidden={current.hidden}
-          open={edit}
-          onOpenChange={setEdit}
-          onVisibilityChange={(id, visible) => {
-            update((previous) => {
-              const layout = normalizeArrangement(previous.current, ids);
-              return {
-                ...previous,
-                current: {
-                  ...layout,
-                  hidden: visible
-                    ? layout.hidden.filter((hiddenId) => hiddenId !== id)
-                    : [...layout.hidden, id],
-                },
-              };
-            });
-          }}
-          onShowAll={showAll}
-          onRestore={() =>
-            update(
-              (previous) => ({ ...previous, current: initial }),
-              "Original card order restored. All cards are shown.",
-            )
-          }
-        />
-      </div>
+      )}
+      <span role="status" className="sr-only">
+        {feedback}
+      </span>
       {error && (
         <p role="alert" className="text-xs text-destructive">
           {error}

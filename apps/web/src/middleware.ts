@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE, passwordConfigured, verifySession } from "@/server/auth";
+import { BRAND_LOGO_PATH } from "@/lib/brand-assets";
 
 /**
  * Node middleware reads the current installation password on every request.
@@ -7,7 +8,10 @@ import { AUTH_COOKIE, passwordConfigured, verifySession } from "@/server/auth";
  */
 export const middleware = (request: NextRequest) => {
   const { pathname } = request.nextUrl;
-  if (pathname === "/login" || pathname === "/api/auth") return NextResponse.next();
+  // MCP authenticates independently with a credential limited to this endpoint.
+  if (pathname === "/api/mcp") return NextResponse.next();
+  if (pathname === "/login" || pathname === "/api/auth" || pathname === BRAND_LOGO_PATH)
+    return NextResponse.next();
   if (!passwordConfigured()) return NextResponse.next();
   const cookie = request.cookies.get(AUTH_COOKIE)?.value;
   if (!verifySession(cookie)) {

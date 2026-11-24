@@ -12,15 +12,9 @@ import { getImportTimeZone } from "@/server/settings";
 import { isTimeZone } from "@/lib/timezone";
 import type { ImportReviewOptions } from "@/lib/import-review";
 import { previewNinjaTraderImport, commitNinjaTraderImport } from "@/server/ninjatrader-import";
-import type { AiImportOptions } from "@/lib/ai-import";
 import { randomUUID } from "node:crypto";
 import { withLogContext } from "@/server/log-context";
 import { logInfo, logWarn, logError } from "@/server/logger";
-import {
-  createAiImportPreview,
-  parseStatementWithAi,
-  readAiImportPreview,
-} from "@/server/ai-import";
 
 interface ImportBody {
   mode: "preview" | "commit";
@@ -32,10 +26,6 @@ interface ImportBody {
   fileName?: string;
   symbol?: string;
   review?: ImportReviewOptions;
-  ai?: AiImportOptions;
-  encoding?: "text" | "pdf";
-  aiPreviewToken?: string;
-  aiReviewed?: boolean;
 }
 
 /**
@@ -54,31 +44,11 @@ const importFile = async (request: Request) => {
   if (body.timeZone !== undefined)
     requireValue(isTimeZone(body.timeZone), "Enter a valid IANA statement timezone.");
   const timeZone = body.timeZone ?? getImportTimeZone();
-  requireValue(
-    body.encoding === undefined || body.encoding === "text" || body.encoding === "pdf",
-    "Unsupported file encoding.",
-  );
-  requireValue(body.encoding !== "pdf" || body.ai, "Enable AI parsing to upload PDF statements.");
-  requireValue(!body.ai || !body.mapping, "Choose AI parsing or column mapping, not both.");
-  const statement = {
-    content: body.content,
-    fileName: body.fileName,
-    encoding: body.encoding,
-    timeZone,
-  };
-  if (body.ai && body.mode === "commit")
-    requireValue(
-      body.aiReviewed === true && body.aiPreviewToken,
-      "Review the AI preview before importing.",
-    );
-
-  const parsed = body.ai
-    ? body.mode === "preview"
-      ? await parseStatementWithAi(statement, body.ai, request.signal)
-      : readAiImportPreview(statement, body.aiPreviewToken!)
-    : body.mapping
-      ? parseWithMapping(body.content, body.mapping, { timeZone })
-      : parseAuto(body.content, { timeZone, fileName: body.fileName, symbol: body.symbol });
+  if ("ai" in body || ("encoding" in body && body.encoding !== "text"))
+    return bad("AI and PDF imports are no longer supported. Use a statement export instead.");
+  const parsed = body.mapping
+    ? parseWithMapping(body.content, body.mapping, { timeZone })
+    : parseAuto(body.content, { timeZone, fileName: body.fileName, symbol: body.symbol });
 
   if (!parsed) {
     logInfo("import", "import.mapping_required", { mode: body.mode });
@@ -102,13 +72,7 @@ const importFile = async (request: Request) => {
       detected: parsed.format,
       timeZone,
       needsMapping: false,
-      executions: body.ai ? parsed.executions : parsed.executions.slice(0, 50),
-      ...(body.ai
-        ? {
-            aiPreviewToken: createAiImportPreview(statement, parsed),
-            sources: "sources" in parsed ? parsed.sources : [],
-          }
-        : {}),
+      executions: parsed.executions.slice(0, 50),
       totals: {
         executions: parsed.executions.length,
         symbols: symbols.length,
@@ -138,13 +102,7 @@ const importFile = async (request: Request) => {
   const result =
     parsed.format === "ninjatrader"
       ? commitNinjaTraderImport(body.accountId, parsed, body.content, timeZone, body.review)
-      : insertExecutions(
-          body.accountId,
-          parsed.executions as ImportedExecution[],
-          "import",
-          undefined,
-          { preserveFees: Boolean(body.ai) },
-        );
+      : insertExecutions(body.accountId, parsed.executions as ImportedExecution[], "import");
   // Invalid rows are skipped with a warning rather than failing the whole file.
   logInfo("import", "import.committed", {
     format: parsed.format,

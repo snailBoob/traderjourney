@@ -12,7 +12,6 @@ import {
 } from "@traderjourney/core";
 import { FilterBar, useFilters } from "@/components/filter-bar";
 import { FilterFields, Field, fieldClass } from "@/components/filter-fields";
-import { JournalReview } from "@/components/journal-review";
 import { reportSelection } from "@/lib/report-selection";
 import { ReportOverview } from "@/components/report-overview";
 import { MonetaryValue, usePrivacy } from "@/components/privacy";
@@ -285,12 +284,11 @@ function Reports() {
       : null,
   );
   const multi = (data?.currencies.length ?? 0) > 1;
+  const [customizeTarget, setCustomizeTarget] = useState<HTMLDivElement | null>(null);
   return (
     <div>
       <FilterBar title="Reports" scope="standard" showSync />
       <div className="space-y-4 p-4">
-        <JournalReview />
-        <hr className="!my-6 border-border" />
         <div className="flex flex-wrap items-center gap-2">
           {(
             [
@@ -312,10 +310,11 @@ function Reports() {
               {name}
             </Button>
           ))}
+          {mode === "overview" && <div ref={setCustomizeTarget} className="ml-auto empty:hidden" />}
         </div>
         <div key={mode} className="journal-report-section space-y-4" data-report-section={mode}>
           {mode === "overview" ? (
-            <ReportOverview query={query} filters={values} />
+            <ReportOverview query={query} filters={values} customizeTarget={customizeTarget} />
           ) : mode === "trends" ? (
             <PerformanceTrendsReport key={query} query={query} />
           ) : mode === "explorer" ? (

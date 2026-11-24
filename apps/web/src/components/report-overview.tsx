@@ -120,7 +120,15 @@ function PageControl({
   );
 }
 
-export function ReportOverview({ query, filters }: { query: string; filters: AnalysisFilters }) {
+export function ReportOverview({
+  query,
+  filters,
+  customizeTarget,
+}: {
+  query: string;
+  filters: AnalysisFilters;
+  customizeTarget: HTMLDivElement | null;
+}) {
   const { data, error, loading } = useApi<OverviewData>(`/api/stats?${query}`);
   const [pages, setPages] = useState<Record<string, number>>({});
   const pageFor = (key: string) => pages[key] ?? 0;
@@ -436,6 +444,7 @@ export function ReportOverview({ query, filters }: { query: string; filters: Ana
         storageKey={REPORT_OVERVIEW_LAYOUT_KEY}
         serverPreferenceKey="reportOverviewLayout"
         customizerTitle="Overview cards"
+        customizeTarget={customizeTarget}
         showSavedLayouts={false}
         className="space-y-3"
       />

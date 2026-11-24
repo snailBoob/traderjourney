@@ -18,6 +18,11 @@ import { getJournalDefaults, getTimeZone, setSetting } from "@/server/settings";
 import { scheduledRules } from "@/lib/progress";
 import { parseJournalDefaults } from "@/lib/journal-defaults";
 import { fetchTradingViewSnapshot, validTradingViewUrl } from "@/lib/tradingview-snapshot";
+import {
+  createNoteTemplate,
+  listNoteTemplates,
+  validTemplateScopes,
+} from "@/server/note-templates";
 
 type Context = { params: Promise<{ resource: string }> };
 const today = () => dayKeyOf(nowIso(), getTimeZone());
@@ -34,37 +39,13 @@ const validDate = (s: unknown): s is string =>
   !isNaN(Date.parse(s)) &&
   new Date(s).toISOString().slice(0, 10) === s;
 const text = (s: unknown, max = 100000): s is string => typeof s === "string" && s.length <= max;
-const TEMPLATE_SCOPES = ["journal", "notebook", "trade", "missed", "all"] as const;
-const validTemplateScopes = (value: unknown): value is string[] =>
-  Array.isArray(value) &&
-  value.length > 0 &&
-  value.every(
-    (scope) =>
-      typeof scope === "string" &&
-      TEMPLATE_SCOPES.includes(scope as (typeof TEMPLATE_SCOPES)[number]),
-  ) &&
-  (value.includes("all") ? value.length === 1 : true);
-const templateScopes = (value: unknown) => JSON.stringify(value);
 const MISSED_OUTCOMES = ["back_to_entry", "extended_to_2r"] as const;
 
 export const GET = handler(async (_request: Request, { params }: Context) => {
   const { resource } = await params;
   if (resource === "templates") {
     const scope = new URL(_request.url).searchParams.get("scope");
-    const templates = db
-      .select()
-      .from(noteTemplates)
-      .all()
-      .filter((template) => {
-        if (!scope) return true;
-        try {
-          const scopes = JSON.parse(template.scopesJson) as string[];
-          return scopes.includes("all") || scopes.includes(scope);
-        } catch {
-          return true;
-        }
-      });
-    return ok({ templates });
+    return ok({ templates: listNoteTemplates(scope) });
   }
   if (resource === "progress")
     return ok({ rules: rules(), checks: db.select().from(progressChecks).all(), today: today() });
@@ -199,11 +180,7 @@ export const POST = handler(async (request: Request, { params }: Context) => {
     );
     const scopes = b.scopes ?? ["all"];
     requireValue(validTemplateScopes(scopes), "Choose at least one valid template location.");
-    const id = newId();
-    db.insert(noteTemplates)
-      .values({ id, name: b.name.trim(), content: b.content, scopesJson: templateScopes(scopes) })
-      .run();
-    return ok({ id });
+    return ok({ id: createNoteTemplate(b.name, b.content, scopes) });
   }
   if (resource === "progress") {
     if (Array.isArray(b.reorder)) {
@@ -416,7 +393,7 @@ export const PATCH = handler(async (request: Request, { params }: Context) => {
     }
     if (b.scopes !== undefined) {
       requireValue(validTemplateScopes(b.scopes), "Choose at least one valid template location.");
-      patch.scopesJson = templateScopes(b.scopes);
+      patch.scopesJson = JSON.stringify(b.scopes);
     }
     requireValue(Object.keys(patch).length > 0, "Nothing to update.");
     db.update(noteTemplates).set(patch).where(eq(noteTemplates.id, b.id)).run();

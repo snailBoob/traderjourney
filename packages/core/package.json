@@ -1,6 +1,6 @@
 {
   "name": "@traderjourney/core",
-  "version": "1.2.6",
+  "version": "1.3.0",
   "private": true,
   "description": "Pure trade-journal domain engine: round-trip matching, performance metrics, aggregations, equity curves, and the open Edge Score. No IO, no framework.",
   "license": "MIT",

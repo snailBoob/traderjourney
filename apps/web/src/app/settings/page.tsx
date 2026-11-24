@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { JournalDefaultSettings } from "@/components/journal-default-settings";
-import { AiSettings } from "@/components/ai-settings";
+import { McpSettings } from "@/components/mcp-settings";
 import { DemoSettings } from "@/components/demo-settings";
 import { SecuritySettings } from "@/components/security-settings";
 import { Trash2 } from "lucide-react";
@@ -164,7 +164,7 @@ function Settings() {
           </CardContent>
         </Card>
 
-        <AiSettings />
+        <McpSettings />
         <DemoSettings />
 
         <Card>

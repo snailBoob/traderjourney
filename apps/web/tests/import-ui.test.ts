@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { TooltipProvider } from "../src/components/ui/tooltip";
-const state = vi.hoisted(() => ({ post: vi.fn(), push: vi.fn(), configured: false }));
+const state = vi.hoisted(() => ({ post: vi.fn(), push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: state.push }) }));
 vi.mock("@/components/filter-bar", () => ({ FilterBar: () => null }));
 vi.mock("@/components/manual-trade-entry", () => ({ ManualTradeEntry: () => null }));
@@ -21,13 +21,6 @@ vi.mock("@/lib/use-api", () => ({
         ? {
             timeZone: "UTC",
             importTimeZone: "UTC",
-            aiProvider: "openai",
-            aiModel: "gpt-4.1-mini",
-            aiConfigured: state.configured,
-            aiConnections: {
-              openai: { configured: state.configured, model: "gpt-4.1-mini", source: "saved" },
-              anthropic: { configured: false, model: "claude-opus-5", source: null },
-            },
           }
         : { formats: [] },
   }),
@@ -39,7 +32,6 @@ beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   state.post.mockReset();
   state.push.mockReset();
-  state.configured = false;
   vi.spyOn(window, "alert").mockImplementation(() => {});
   container = document.createElement("div");
   document.body.append(container);
@@ -71,31 +63,10 @@ const upload = () =>
     });
     input.dispatchEvent(new Event("change", { bubbles: true }));
   });
-it("defaults off and never sends a chosen file to AI until explicitly previewed with a configured key", async () => {
-  await render();
-  expect(container.querySelector("#ai-import-enabled")?.getAttribute("data-state")).toBe(
-    "unchecked",
-  );
-  await act(async () =>
-    (container.querySelector("#ai-import-enabled") as HTMLButtonElement).click(),
-  );
-  await upload();
-  expect(state.post).not.toHaveBeenCalled();
-  expect(button("Preview with AI").disabled).toBe(true);
-});
-it("shows all extracted rows and requires review before committing the frozen preview", async () => {
-  state.configured = true;
-  await render();
-  await act(async () =>
-    (container.querySelector("#ai-import-enabled") as HTMLButtonElement).click(),
-  );
-  await upload();
-  expect(state.post).not.toHaveBeenCalled();
+it("previews a statement and requires an account before committing", async () => {
   state.post.mockResolvedValueOnce({
-    detected: "AI-assisted",
+    detected: "generic",
     timeZone: "UTC",
-    aiPreviewToken: "opaque-token",
-    sources: ["Row 1"],
     executions: [
       {
         symbol: "TEST",
@@ -114,24 +85,24 @@ it("shows all extracted rows and requires review before committing the frozen pr
       to: "2026-09-01T10:00:00Z",
     },
   });
-  await act(async () => button("Preview with AI").click());
+  await render();
+  await upload();
   expect(state.post.mock.calls[0]![1]).toMatchObject({
     mode: "preview",
-    ai: { provider: "openai" },
+    timeZone: "UTC",
+    content: "statement",
   });
-  expect(container.textContent).toContain("2 @ 100 · Fees 0");
-  expect(container.textContent).toContain("Source: Row 1");
-  await act(async () => button("Choose test account").click());
+  expect(state.post.mock.calls[0]![1]).not.toHaveProperty("ai");
+  expect(container.textContent).toContain("TEST · BUY");
   expect(button("Import").disabled).toBe(true);
-  const checkboxes = container.querySelectorAll<HTMLButtonElement>('button[role="checkbox"]');
-  await act(async () => checkboxes[checkboxes.length - 1]!.click());
+  await act(async () => button("Choose test account").click());
   expect(button("Import").disabled).toBe(false);
   state.post.mockResolvedValueOnce({ inserted: 1, duplicates: 0 });
   await act(async () => button("Import").click());
   expect(state.post.mock.calls[1]![1]).toMatchObject({
     mode: "commit",
-    aiPreviewToken: "opaque-token",
-    aiReviewed: true,
+    accountId: "test-account",
+    timeZone: "UTC",
   });
-  expect(state.post.mock.calls[1]![1].ai).not.toHaveProperty("apiKey");
+  expect(state.post.mock.calls[1]![1]).not.toHaveProperty("ai");
 });
