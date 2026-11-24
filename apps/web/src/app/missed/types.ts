@@ -12,7 +12,7 @@ export interface Missed {
   tradingViewUrl: string | null;
   notes: string;
   tags: string[];
-  snapshotAttachmentId: string | null;
+  snapshotId: string | null;
   ruleReview: { followed: number; assessed: number; total: number };
   ruleChecks: RuleCheck[];
 }

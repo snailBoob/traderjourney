@@ -19,18 +19,17 @@ export const GET = handler(async (_request: Request, { params }: Params) => {
   if (!row) return bad("Trade not found", 404);
   const trade = rowToTrade(row);
   const fills = listExecutions(row.accountId, trade.executionIds);
-  const hasSnapshot = Boolean(
-    db
-      .select({ id: snapshots.id })
-      .from(snapshots)
-      .where(and(eq(snapshots.ownerType, "trade"), eq(snapshots.ownerId, key)))
-      .get(),
-  );
+  const snapshot = db
+    .select({ id: snapshots.id })
+    .from(snapshots)
+    .where(and(eq(snapshots.ownerType, "trade"), eq(snapshots.ownerId, key)))
+    .get();
   return ok({
     timeZone: getTimeZone(),
     trade: {
       ...row,
-      hasSnapshot,
+      hasSnapshot: Boolean(snapshot),
+      snapshotId: snapshot?.id ?? null,
       status: trade.status,
       riskAmount: tradeRisk(trade),
       realizedR: tradeR(trade),

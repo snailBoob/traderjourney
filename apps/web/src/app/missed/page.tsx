@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { postJson, useApi } from "@/lib/use-api";
+import { snapshotImageSrc } from "@/lib/snapshot-image";
 import { Columns3, Plus, X } from "lucide-react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
@@ -41,6 +42,7 @@ function MissedContent() {
   const [deleteTarget, setDeleteTarget] = useState<Missed | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [fullscreenId, setFullscreenId] = useState<string | null>(null);
+  const fullscreenTrade = data?.trades.find((trade) => trade.id === fullscreenId);
   useEffect(() => {
     if (!pendingSavedEntry || !data) return;
     const savedEntry = data.trades.find(
@@ -183,7 +185,7 @@ function MissedContent() {
           )}
         </MissedTradesTable>
 
-        {fullscreenId && (
+        {fullscreenTrade?.snapshotId && (
           <div
             className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/90 p-4"
             role="dialog"
@@ -199,7 +201,7 @@ function MissedContent() {
               <X className="h-5 w-5" />
             </button>
             <img
-              src={`/api/snapshots/missed/${encodeURIComponent(fullscreenId)}`}
+              src={snapshotImageSrc("missed", fullscreenTrade.id, fullscreenTrade.snapshotId)}
               alt="TradingView snapshot fullscreen"
               className="max-h-full max-w-full object-contain"
               onClick={(event) => {

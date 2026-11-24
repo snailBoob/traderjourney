@@ -8,6 +8,7 @@ import { useApi } from "@/lib/use-api";
 import { publishHeaderNotice } from "@/lib/header-notice";
 import { fmtFee, fmtNumber } from "@/lib/utils";
 import { formatTimestamp } from "@/lib/timezone";
+import { snapshotImageSrc } from "@/lib/snapshot-image";
 import { RuleChecklist } from "@/components/rule-checklist";
 import { Markdown } from "@/components/rich-editor";
 
@@ -25,7 +26,7 @@ type TradeExpandedData = {
     key: string;
     accountId: string;
     tradingViewUrl: string | null;
-    hasSnapshot: boolean;
+    snapshotId: string | null;
     symbol: string;
     direction: string;
     status: string;
@@ -77,7 +78,7 @@ export function ExpandedTrade({
     "/api/playbooks",
   );
   const [fullscreenSnapshot, setFullscreenSnapshot] = useState(false);
-  const [snapshotLoadError, setSnapshotLoadError] = useState(false);
+  const [failedSnapshotSrc, setFailedSnapshotSrc] = useState<string | null>(null);
   if (error)
     return (
       <p role="alert" className="text-sm text-destructive">
@@ -90,7 +91,9 @@ export function ExpandedTrade({
   const mistakes = safeArray(trade.mistakesJson);
   const reasons = safeArray(trade.reasonForExitJson);
   const patterns = safeArray(trade.priceActionJson);
-  const hasSnapshot = data.trade.hasSnapshot;
+  const snapshotSrc = trade.snapshotId
+    ? snapshotImageSrc("trade", trade.key, trade.snapshotId)
+    : null;
   const executions = [...data.executions].sort(
     (a, b) => Date.parse(a.executedAt) - Date.parse(b.executedAt),
   );
@@ -133,8 +136,8 @@ export function ExpandedTrade({
                 Snapshot
               </div>
               <div className="mt-3 flex min-h-48 flex-1 items-center justify-center rounded-lg border border-border/70 bg-background p-3">
-                {hasSnapshot ? (
-                  snapshotLoadError ? (
+                {snapshotSrc ? (
+                  failedSnapshotSrc === snapshotSrc ? (
                     <div role="alert" className="py-6 text-center text-sm text-destructive">
                       The snapshot is recorded, but its image could not be loaded. Re-save the
                       TradingView URL in Edit to retry.
@@ -147,9 +150,9 @@ export function ExpandedTrade({
                       aria-label="Open snapshot"
                     >
                       <img
-                        src={`/api/snapshots/trade/${encodeURIComponent(trade.key)}`}
+                        src={snapshotSrc}
                         alt="TradingView snapshot"
-                        onError={() => setSnapshotLoadError(true)}
+                        onError={() => setFailedSnapshotSrc(snapshotSrc)}
                         className="block h-auto max-h-none w-full max-w-full cursor-zoom-in object-contain"
                       />
                     </button>
@@ -362,7 +365,7 @@ export function ExpandedTrade({
             </section>
           </div>
         </div>
-        {fullscreenSnapshot && (
+        {fullscreenSnapshot && snapshotSrc && (
           <div
             className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/90 p-4"
             role="dialog"
@@ -378,10 +381,10 @@ export function ExpandedTrade({
               ×
             </button>
             <img
-              src={`/api/snapshots/trade/${encodeURIComponent(trade.key)}`}
+              src={snapshotSrc}
               alt="TradingView snapshot fullscreen"
               onError={() => {
-                setSnapshotLoadError(true);
+                setFailedSnapshotSrc(snapshotSrc);
                 setFullscreenSnapshot(false);
               }}
               className="max-h-full max-w-full object-contain"

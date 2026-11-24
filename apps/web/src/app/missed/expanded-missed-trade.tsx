@@ -3,6 +3,7 @@
 import { Markdown } from "@/components/rich-editor";
 import { Button } from "@/components/ui/button";
 import { publishHeaderNotice } from "@/lib/header-notice";
+import { snapshotImageSrc } from "@/lib/snapshot-image";
 import { Share2 } from "lucide-react";
 import { rulesFollowedPercent } from "./format";
 import { type Missed } from "./types";
@@ -74,13 +75,13 @@ export function ExpandedMissedTrade({
       </div>
       <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[2fr_1fr_1fr]">
         <div className="flex h-full min-h-0 flex-col gap-2">
-          {trade.snapshotAttachmentId ? (
+          {trade.snapshotId ? (
             <button
               type="button"
               className="card-sheen flex min-h-48 w-full flex-1 flex-col items-center justify-center cursor-zoom-in overflow-hidden rounded-xl border border-border/70 bg-card p-4 text-card-foreground"
               onClick={(event) => {
                 event.stopPropagation();
-                setFullscreenId(trade.snapshotAttachmentId);
+                setFullscreenId(trade.id);
               }}
             >
               <div className="w-full text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -88,7 +89,7 @@ export function ExpandedMissedTrade({
               </div>
               <div className="mt-3 flex min-h-0 flex-1 items-center justify-center">
                 <img
-                  src={`/api/snapshots/missed/${encodeURIComponent(trade.id)}`}
+                  src={snapshotImageSrc("missed", trade.id, trade.snapshotId)}
                   alt="TradingView snapshot"
                   className="block max-h-[28rem] max-w-full object-contain"
                 />

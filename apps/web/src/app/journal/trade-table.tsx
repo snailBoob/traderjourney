@@ -392,7 +392,11 @@ export function TradeTable({
                           colSpan={columnOrder.filter((id) => visibleColumns.has(id)).length + 2}
                           className="entry-detail p-3"
                         >
-                          <ExpandedTrade tradeKey={t.key} onEdit={() => onEditTrade(t.key)} />
+                          <ExpandedTrade
+                            key={savedTrade?.key === t.key ? savedTrade.revision : 0}
+                            tradeKey={t.key}
+                            onEdit={() => onEditTrade(t.key)}
+                          />
                         </td>
                       </tr>
                     )}

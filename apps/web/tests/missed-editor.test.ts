@@ -19,7 +19,7 @@ const state = vi.hoisted(() => ({
         tradingViewUrl: null,
         notes: "Existing note",
         tags: ["tag"],
-        snapshotAttachmentId: null,
+        snapshotId: null as string | null,
         ruleReview: { followed: 1, assessed: 1, total: 1 },
         ruleChecks: [{ rule: "First rule", followed: true }],
       },
@@ -142,6 +142,7 @@ beforeEach(async () => {
   state.post.mockReset().mockResolvedValue({ id: "missed-1" });
   state.refresh.mockReset();
   state.refreshTags.mockReset();
+  state.data.trades[0]!.snapshotId = null;
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -180,6 +181,22 @@ it("retains the draft after a save error and permits retry", async () => {
   expect(state.refresh).not.toHaveBeenCalled();
   await click("Save");
   expect(state.post.mock.calls[1]).toEqual(state.post.mock.calls[0]);
+});
+it("shows a replacement snapshot in the open detail and fullscreen after saving", async () => {
+  state.data.trades[0]!.snapshotId = "original";
+  state.refresh.mockImplementationOnce(() => {
+    state.data.trades[0]!.snapshotId = "replacement";
+  });
+  await edit();
+  const preview = () => container.querySelector('img[alt="TradingView snapshot"]');
+  expect(preview()?.getAttribute("src")).toBe("/api/snapshots/missed/missed-1?v=original");
+  await click("Save");
+  const updatedSrc = "/api/snapshots/missed/missed-1?v=replacement";
+  expect(preview()?.getAttribute("src")).toBe(updatedSrc);
+  await act(async () => preview()?.closest("button")?.click());
+  expect(
+    container.querySelector('img[alt="TradingView snapshot fullscreen"]')?.getAttribute("src"),
+  ).toBe(updatedSrc);
 });
 it("resets rule assessments when changing strategy", async () => {
   await edit();

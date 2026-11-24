@@ -130,11 +130,11 @@ export const GET = handler(async (_request: Request, { params }: Context) => {
       checkMap.set(check.missedTradeId, list);
     }
     const storedSnapshots = db
-      .select({ ownerId: snapshots.ownerId })
+      .select({ ownerId: snapshots.ownerId, id: snapshots.id })
       .from(snapshots)
       .where(eq(snapshots.ownerType, "missed"))
       .all();
-    const snapshotByOwner = new Set(storedSnapshots.map((snapshot) => snapshot.ownerId));
+    const snapshotByOwner = new Map(storedSnapshots.map(({ ownerId, id }) => [ownerId, id]));
     const mappedTrades = trades.map((trade) => {
       const rules = trade.playbookId ? (playbookMap.get(trade.playbookId) ?? []) : [];
       const storedChecks = checkMap.get(trade.id) ?? new Map<string, boolean>();
@@ -154,6 +154,7 @@ export const GET = handler(async (_request: Request, { params }: Context) => {
           }
         })(),
         snapshotAttachmentId: snapshotByOwner.has(trade.id) ? trade.id : null,
+        snapshotId: snapshotByOwner.get(trade.id) ?? null,
         ruleReview: { followed, assessed: assessed.length, total: rules.length },
         ruleChecks,
       };

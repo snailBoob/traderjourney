@@ -33,7 +33,9 @@ def recognize(image, tessdata):
             ink = Image.fromarray(np.asarray(patch).min(axis=2))
             if ink.getextrema()[1] - ink.getextrema()[0] < 60:
                 continue
-            ink = ImageOps.invert(ImageOps.autocontrast(ink)).resize((ink.width*4,ink.height*4), Image.Resampling.LANCZOS)
+            # Avoid over-enlarging labels from high-resolution snapshots.
+            scale = min(4, max(1, 64 // ink.height))
+            ink = ImageOps.invert(ImageOps.autocontrast(ink)).resize((ink.width*scale,ink.height*scale), Image.Resampling.LANCZOS)
             api.SetImage(ImageOps.expand(ink, 15, fill=255))
             text = api.GetUTF8Text().strip()
             if not re.fullmatch(r'\d+\.\d+', text) or api.MeanTextConf() < 80:
