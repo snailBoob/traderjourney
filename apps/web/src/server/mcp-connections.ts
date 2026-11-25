@@ -21,6 +21,7 @@ const storedConnections = z.array(
     name: z.string(),
     access: z.enum(MCP_ACCESS),
     createdAt: z.string(),
+    enabled: z.boolean().default(true),
     tokenHash: z.string().regex(tokenFormat),
   }),
 );
@@ -71,7 +72,7 @@ export function listMcpConnections() {
 export function createMcpConnection(name: string, access: McpAccess) {
   const rows = load();
   if (rows.length >= MAX_MCP_CONNECTIONS) return null;
-  const connection = { id: newId(), name, access, createdAt: nowIso() };
+  const connection = { id: newId(), name, access, createdAt: nowIso(), enabled: true };
   const token = randomBytes(32).toString("hex");
   save(file(), [{ ...connection, tokenHash: digest(token).toString("hex") }, ...rows]);
   return { connection, token };
@@ -82,6 +83,15 @@ export function revokeMcpConnection(id: string) {
   const remaining = rows.filter((row) => row.id !== id);
   if (rows.length === remaining.length) return false;
   save(file(), remaining);
+  return true;
+}
+
+export function setMcpConnectionEnabled(id: string, enabled: boolean) {
+  const rows = load();
+  const row = rows.find((connection) => connection.id === id);
+  if (!row) return false;
+  row.enabled = enabled;
+  save(file(), rows);
   return true;
 }
 
@@ -99,7 +109,7 @@ export function authorizeMcp(header: string | null): McpAccess | "disabled" | "u
   if (supplied) {
     const hashed = digest(supplied);
     const row = rows.find((row) => timingSafeEqual(hashed, Buffer.from(row.tokenHash, "hex")));
-    if (row) return row.access;
+    if (row?.enabled) return row.access;
   }
   return legacy || rows.length ? "unauthorized" : "disabled";
 }

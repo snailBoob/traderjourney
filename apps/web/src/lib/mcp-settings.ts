@@ -7,7 +7,7 @@ export interface McpSettingsData {
   canManage: boolean;
   legacyReadEnabled: boolean;
   enabled: boolean;
-  connections: { id: string; name: string; access: McpAccess }[];
+  connections: { id: string; name: string; access: McpAccess; enabled: boolean }[];
 }
 export const REVIEW_FOLDER = "Weekly AI reviews";
 
@@ -30,6 +30,6 @@ export const MCP_GUIDE = [
   },
   {
     title: "Manage access",
-    text: "Use the MCP switch below Privacy mode to pause access without losing connections. Revoke a connection to remove it permanently. Data fetched by your assistant may be sent to its model provider.",
+    text: "Pause an individual connection in Settings → MCP or pause all access with the MCP switch below Privacy mode. Pausing keeps your tokens. Revoke a connection to remove it permanently. Data fetched by your assistant may be sent to its model provider.",
   },
 ] as const;

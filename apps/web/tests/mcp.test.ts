@@ -202,13 +202,23 @@ it("pauses both token types without replacing them and caps managed connections 
   session.mockReturnValue({ value: auth.sessionToken() });
   try {
     let latest;
+    const tokens: string[] = [];
     for (let i = previous; i < 5; i++) {
       const response = await manage("POST", { name: `Slot ${i}`, access: "read" });
       expect(response.status).toBe(201);
       latest = await response.json();
       ids.push(latest.connection.id);
+      tokens.push(latest.token);
     }
     const managed = { Authorization: `Bearer ${latest.token}` };
+    const other = { Authorization: `Bearer ${tokens[0]}` };
+    const id = latest.connection.id;
+    expect((await manage("PATCH", { id: "missing", enabled: false })).status).toBe(404);
+    expect((await manage("PATCH", { id, enabled: "false" })).status).toBe(400);
+    expect((await manage("PATCH", { id, enabled: false })).status).toBe(200);
+    expect(service.listMcpConnections().connections[0]).toMatchObject({ id, enabled: false });
+    expect((await request("tools/list", {}, managed)).status).toBe(401);
+    expect((await request("tools/list", {}, other)).status).toBe(200);
     expect((await manage("POST", { name: "Overflow", access: "read" })).status).toBe(409);
     expect((await manage("PATCH", { enabled: false })).status).toBe(200);
     expect(service.listMcpConnections()).toMatchObject({ enabled: false });
@@ -217,6 +227,8 @@ it("pauses both token types without replacing them and caps managed connections 
     expect((await request("tools/list", {}, managed)).status).toBe(404);
     expect((await manage("PATCH", { enabled: true })).status).toBe(200);
     expect((await request("tools/list")).status).toBe(200);
+    expect((await request("tools/list", {}, managed)).status).toBe(401);
+    expect((await manage("PATCH", { id, enabled: true })).status).toBe(200);
     expect((await request("tools/list", {}, managed)).status).toBe(200);
     service.revokeMcpConnection(ids.pop()!);
     const replacement = await manage("POST", { name: "Replacement", access: "read" });

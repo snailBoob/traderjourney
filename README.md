@@ -35,8 +35,9 @@ in Settings, or call `get_mcp_guide` from your connected assistant for the workf
 
 Read/Write can also create templates for the editor’s **Insert template** menu. It
 cannot edit or delete existing templates. You can create up to five connections in
-Settings. The **MCP** switch below Privacy mode pauses all MCP access, including
-the server-managed token, without removing connections or rotating tokens.
+Settings. Use the switch next to a connection to pause it without replacing its
+token. The **MCP** switch below Privacy mode pauses all MCP access, including the
+server-managed token, without changing individual connection settings.
 
 Settings shows a token once. Open **Setup prompt** under the connection for help
 configuring your client. The prompt includes your server URL, not the token.

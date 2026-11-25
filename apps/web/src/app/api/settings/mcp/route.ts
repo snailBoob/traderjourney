@@ -11,6 +11,7 @@ import {
   createMcpConnection,
   listMcpConnections,
   revokeMcpConnection,
+  setMcpConnectionEnabled,
   setMcpEnabled,
 } from "@/server/mcp-connections";
 
@@ -51,13 +52,19 @@ export const PATCH = handler(async (request: Request) => {
   const denied = permitChange(request);
   if (denied) return denied;
   const body = z
-    .strictObject({ enabled: z.boolean() })
+    .strictObject({ ...connectionId.partial().shape, enabled: z.boolean() })
     .safeParse(await request.json().catch(() => null));
   if (!body.success) return bad("Choose whether MCP access is on or off.");
+  const { id, enabled } = body.data;
+  if (id) {
+    return setMcpConnectionEnabled(id, enabled)
+      ? ok({ id, enabled })
+      : bad("Connection not found.", 404);
+  }
   const { connections, legacyReadEnabled } = listMcpConnections();
   if (!connections.length && !legacyReadEnabled) return bad("Create an MCP connection first.", 409);
-  setMcpEnabled(body.data.enabled);
-  return ok({ enabled: body.data.enabled });
+  setMcpEnabled(enabled);
+  return ok({ enabled });
 });
 
 export const PUT = handler(async (request: Request) => {

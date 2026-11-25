@@ -126,6 +126,20 @@ export function McpSettings() {
     }
   }
 
+  async function setConnectionEnabled(id: string, enabled: boolean) {
+    setBusy(true);
+    setFailure("");
+    if (created?.connection.id === id) setTestPassed(false);
+    try {
+      await postJson(endpoint, { id, enabled }, "PATCH");
+      window.dispatchEvent(new Event(MCP_SETTINGS_CHANGED));
+    } catch (cause) {
+      setFailure(cause instanceof Error ? cause.message : "Could not change connection access.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card id="mcp-settings">
       <CardHeader>
@@ -158,7 +172,7 @@ export function McpSettings() {
         </details>
         {data?.legacyReadEnabled && (
           <p className="text-muted-foreground">
-            The server-configured token is active with Read access. Manage it on the server.
+            A server-configured token with Read access is present. Manage it on the server.
           </p>
         )}
         {data && !data.canManage && (
@@ -170,7 +184,9 @@ export function McpSettings() {
             {atCapacity ? " · Revoke a connection to free a slot." : ""}
           </p>
         )}
-        {data?.enabled === false && <p>MCP access is off. Your connections are still saved.</p>}
+        {data?.enabled === false && (
+          <p>All MCP access is paused. The settings below apply when you turn MCP back on.</p>
+        )}
         {data?.canManage && (
           <form onSubmit={create} className="flex flex-wrap items-end gap-3">
             <div className="grid gap-1">
@@ -250,37 +266,51 @@ export function McpSettings() {
                 <span className="break-all">
                   {connection.name} · {accessLabel(connection.access)}
                 </span>
-                {pendingRevoke === connection.id ? (
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      disabled={busy || testing}
-                      onClick={() => void revoke(connection.id)}
-                    >
-                      Confirm revoke
-                    </Button>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={connection.enabled ? "secondary" : "outline"}
+                    role="switch"
+                    aria-label={`${connection.name} access`}
+                    aria-checked={connection.enabled}
+                    disabled={busy || testing || !data.canManage || pendingRevoke === connection.id}
+                    onClick={() => void setConnectionEnabled(connection.id, !connection.enabled)}
+                  >
+                    {connection.enabled ? "On" : "Off"}
+                  </Button>
+                  {pendingRevoke === connection.id ? (
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={busy || testing}
+                        onClick={() => void revoke(connection.id)}
+                      >
+                        Confirm revoke
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPendingRevoke(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setPendingRevoke(null)}
+                      disabled={busy || testing || !data.canManage}
+                      onClick={() => setPendingRevoke(connection.id)}
                     >
-                      Cancel
+                      Revoke
                     </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={busy || testing || !data.canManage}
-                    onClick={() => setPendingRevoke(connection.id)}
-                  >
-                    Revoke
-                  </Button>
-                )}
+                  )}
+                </div>
                 {url && <SetupPrompt url={url} />}
               </li>
             ))}
