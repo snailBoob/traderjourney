@@ -323,6 +323,23 @@ it("manages independent tokens and only allows Read/Write to add weekly reviews"
       .all()
       .some((row) => row.name === "Weekly AI reviews"),
   ).toBe(false);
+  const change = { key: "trade-b", remove: ["breakout"], add: ["retest"] };
+  expect(await invoke(reader.token, "update_trade_tags", change)).toMatchObject({ isError: true });
+  expect(await invoke(writer.token, "update_trade_tags", { ...change, add: [" "] })).toMatchObject({
+    isError: true,
+  });
+  expect(
+    (await invoke(writer.token, "update_trade_tags", { key: change.key, add: ["ES"] }))
+      .structuredContent.tags,
+  ).toEqual(["breakout", "ES"]);
+  expect((await invoke(writer.token, "update_trade_tags", change)).structuredContent.tags).toEqual([
+    "ES",
+    "retest",
+  ]);
+  expect((await call("get_trade", { key: change.key })).structuredContent.trade).toMatchObject({
+    tags: ["ES", "retest"],
+    notes: "Waited for the retest",
+  });
   const saved = (await invoke(writer.token, "save_weekly_review", review)).structuredContent;
   expect(saved).toMatchObject({ created: true });
   expect(

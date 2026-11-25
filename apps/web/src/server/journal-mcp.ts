@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { plannedR, tradeR, type AnnotatedTrade } from "@traderjourney/core";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { accounts, db, journalDays } from "@/db";
+import { accounts, db, journalDays, trades } from "@/db";
 import { MCP_GUIDE, type McpAccess } from "@/lib/mcp-settings";
 import { getTimeZone } from "./settings";
 import { getTradeByKey, queryTrades, rowToTrade } from "./trades-query";
@@ -114,6 +114,41 @@ export function createJournalMcpServer(access: McpAccess) {
   );
 
   if (access === "read-write") {
+    const tagList = z.array(z.string().trim().min(1).max(200)).max(100).default([]);
+    server.registerTool(
+      "update_trade_tags",
+      {
+        description:
+          "Add or remove exact tags on one recorded trade. To replace a tag, remove the old one and add the new one in the same call. Returns the resulting tags.",
+        annotations: { ...annotations, readOnlyHint: false, destructiveHint: true },
+        inputSchema: { key: z.string().min(1).max(500), add: tagList, remove: tagList },
+      },
+      ({ key, add, remove }) => {
+        if (!add.length && !remove.length) return failure("Specify tags to add or remove.");
+        if (add.some((tag) => remove.includes(tag)))
+          return failure("A tag cannot be both added and removed.");
+        return db.transaction(
+          (tx) => {
+            const row = tx
+              .select({ stored: trades.tagsJson })
+              .from(trades)
+              .where(eq(trades.key, key))
+              .get();
+            if (!row) return failure("Trade not found. Use a key returned by list_trades.");
+            const current = z.array(z.string()).parse(JSON.parse(row.stored ?? "[]"));
+            const tags = current.filter((tag) => !remove.includes(tag));
+            for (const tag of add) if (!tags.includes(tag)) tags.push(tag);
+            if (tags.length > 100) return failure("A trade can have at most 100 tags.");
+            tx.update(trades)
+              .set({ tagsJson: JSON.stringify(tags) })
+              .where(eq(trades.key, key))
+              .run();
+            return result({ key, tags });
+          },
+          { behavior: "immediate" },
+        );
+      },
+    );
     server.registerTool(
       "create_note_template",
       {

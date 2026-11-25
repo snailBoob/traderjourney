@@ -22,7 +22,11 @@ export const MCP_GUIDE = [
   },
   {
     title: "Save the review",
-    text: `Show the draft first and ask for approval. With Read/Write, use save_weekly_review with the Monday of that week and the approved text. The first save creates Notes → ${REVIEW_FOLDER}. Existing reviews and trades cannot be updated or deleted via MCP.`,
+    text: `Show the draft first and ask for approval. With Read/Write, use save_weekly_review with the Monday of that week and the approved text. The first save creates Notes → ${REVIEW_FOLDER}. Existing reviews cannot be updated or deleted via MCP.`,
+  },
+  {
+    title: "Edit trade tags",
+    text: "With Read/Write, use the key from list_trades and call update_trade_tags. To replace a tag, pass the old tag in remove and the new tag in add. All other tags stay in place.",
   },
   {
     title: "Create a text template",
