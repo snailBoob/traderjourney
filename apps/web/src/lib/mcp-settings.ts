@@ -25,6 +25,10 @@ export const MCP_GUIDE = [
     text: `Show the draft first and ask for approval. With Read/Write, use save_weekly_review with the Monday of that week and the approved text. The first save creates Notes → ${REVIEW_FOLDER}. Existing reviews cannot be updated or deleted via MCP.`,
   },
   {
+    title: "Add a trade note",
+    text: "With Read/Write, use a key from list_trades and pass it with your note to append_trade_note. The new paragraph appears after any existing notes. Use get_trade to read them.",
+  },
+  {
     title: "Edit trade tags",
     text: "With Read/Write, use the key from list_trades and call update_trade_tags. To replace a tag, pass the old tag in remove and the new tag in add. All other tags stay in place.",
   },

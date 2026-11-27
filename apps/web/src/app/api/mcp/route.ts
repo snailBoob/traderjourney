@@ -28,7 +28,10 @@ const handleMessage = handler(
     const access = authorize(request);
     if (access instanceof Response) return access;
     const transport = new WebStandardStreamableHTTPServerTransport({ enableJsonResponse: true });
-    const server = createJournalMcpServer(access);
+    const publicUrl = new URL(request.url);
+    // Next may use its internal listener hostname in request.url.
+    publicUrl.host = request.headers.get("host") ?? publicUrl.host;
+    const server = createJournalMcpServer(access, publicUrl.origin);
     try {
       await server.connect(transport);
       const response = await transport.handleRequest(request);

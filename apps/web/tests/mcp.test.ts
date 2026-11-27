@@ -54,7 +54,7 @@ beforeAll(async () => {
   db.insert(trades)
     .values([
       { ...trade, key: "trade-a" },
-      { ...trade, key: "trade-b" },
+      { ...trade, key: "trade-b", tradingViewUrl: "https://www.tradingview.com/x/source/" },
       { ...trade, key: "trade-c", symbol: "NQ" },
       { ...trade, key: "trade-d", accountId: "other" },
     ])
@@ -142,6 +142,7 @@ it("initializes and exposes only read-only tools for the legacy token", async ()
     "get_journal_day",
     "get_mcp_guide",
     "get_trade",
+    "get_trade_snapshot",
     "list_note_templates",
     "list_trades",
   ]);
@@ -150,6 +151,45 @@ it("initializes and exposes only read-only tools for the legacy token", async ()
       (tool: { annotations: { readOnlyHint: boolean } }) => tool.annotations.readOnlyHint,
     ),
   ).toBe(true);
+});
+
+it("exposes the source independently and serves the original stored snapshot over MCP", async () => {
+  const key = "trade-b";
+  const source = "https://www.tradingview.com/x/source/";
+  const detail = async () => (await call("get_trade", { key })).structuredContent.trade;
+  expect(await detail()).toMatchObject({
+    tradingViewUrl: source,
+    hasSnapshot: false,
+    snapshotUrl: null,
+  });
+  expect((await call("get_trade_snapshot", { key })).isError).toBe(true);
+  const bytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGP4DwABAQEAsTj2FAAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  data.db
+    .insert(data.snapshots)
+    .values({
+      id: "test-image",
+      ownerType: "trade",
+      ownerId: key,
+      data: bytes,
+      mime: "image/png",
+      size: bytes.length,
+      createdAt: "2026-05-02",
+    })
+    .run();
+  const snapshotUrl = "http://localhost:3000/api/snapshots/trade/trade-b";
+  expect(await detail()).toMatchObject({ tradingViewUrl: source, hasSnapshot: true, snapshotUrl });
+  const [view] = (await call("get_trade_snapshot", { key })).content;
+  expect(view).toMatchObject({ type: "image", mimeType: "image/png" });
+  expect(Buffer.from(view.data, "base64")).toEqual(bytes);
+  const [file] = (await call("get_trade_snapshot", { key, mode: "download" })).content;
+  expect(file).toMatchObject({
+    type: "resource",
+    resource: { uri: snapshotUrl, mimeType: "image/png" },
+  });
+  expect(Buffer.from(file.resource.blob, "base64")).toEqual(bytes);
 });
 
 it("tests the MCP handshake without granting browser access to the MCP endpoint", async () => {
@@ -340,6 +380,21 @@ it("manages independent tokens and only allows Read/Write to add weekly reviews"
     tags: ["ES", "retest"],
     notes: "Waited for the retest",
   });
+  const note = { key: change.key, note: "Entered after confirmation." };
+  expect(await invoke(reader.token, "append_trade_note", note)).toMatchObject({ isError: true });
+  expect(await invoke(writer.token, "append_trade_note", note)).toMatchObject({
+    structuredContent: { key: note.key, appended: true },
+  });
+  for (const invalid of ["   ", "x".repeat(100000)]) {
+    expect(
+      await invoke(writer.token, "append_trade_note", { ...note, note: invalid }),
+    ).toMatchObject({
+      isError: true,
+    });
+  }
+  expect((await call("get_trade", { key: note.key })).structuredContent.trade.notes).toBe(
+    `Waited for the retest\n\n${note.note}`,
+  );
   const saved = (await invoke(writer.token, "save_weekly_review", review)).structuredContent;
   expect(saved).toMatchObject({ created: true });
   expect(

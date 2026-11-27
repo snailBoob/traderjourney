@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { plannedR, tradeR, type AnnotatedTrade } from "@traderjourney/core";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { accounts, db, journalDays, trades } from "@/db";
+import { accounts, db, journalDays, snapshots, trades } from "@/db";
 import { MCP_GUIDE, type McpAccess } from "@/lib/mcp-settings";
 import { getTimeZone } from "./settings";
 import { getTradeByKey, queryTrades, rowToTrade } from "./trades-query";
@@ -63,7 +63,11 @@ const failure = (text: string) => ({
   content: [{ type: "text" as const, text }],
 });
 
-export function createJournalMcpServer(access: McpAccess) {
+const snapshotOwner = (key: string) =>
+  and(eq(snapshots.ownerType, "trade"), eq(snapshots.ownerId, key));
+
+export function createJournalMcpServer(access: McpAccess, origin: string) {
+  const imageUrl = (key: string) => `${origin}/api/snapshots/trade/${encodeURIComponent(key)}`;
   const server = new McpServer(
     { name: "traderjourney", version: "1.0.0" },
     {
@@ -114,6 +118,32 @@ export function createJournalMcpServer(access: McpAccess) {
   );
 
   if (access === "read-write") {
+    server.registerTool(
+      "append_trade_note",
+      {
+        description:
+          "Append a paragraph to the notes of one recorded trade. Get its key from list_trades. Existing text is preserved; use get_trade to read the notes.",
+        annotations: { ...annotations, readOnlyHint: false, idempotentHint: false },
+        inputSchema: {
+          key: z.string().min(1).max(500),
+          note: z.string().trim().min(1).max(100000),
+        },
+      },
+      ({ key, note }) =>
+        db.transaction(
+          (tx) => {
+            const owner = eq(trades.key, key);
+            const row = tx.select({ notes: trades.notes }).from(trades).where(owner).get();
+            if (!row) return failure("Trade not found. Use a key returned by list_trades.");
+            const notes = row.notes ? `${row.notes}\n\n${note}` : note;
+            if (notes.length > 100000)
+              return failure("Combined trade notes must be at most 100,000 characters.");
+            tx.update(trades).set({ notes }).where(owner).run();
+            return result({ key, appended: true });
+          },
+          { behavior: "immediate" },
+        ),
+    );
     const tagList = z.array(z.string().trim().min(1).max(200)).max(100).default([]);
     server.registerTool(
       "update_trade_tags",
@@ -238,7 +268,7 @@ export function createJournalMcpServer(access: McpAccess) {
     "get_trade",
     {
       description:
-        "Read one recorded trade including its trade notes, tags, mistakes, entry and exit prices, and P&L. Use its key from list_trades.",
+        "Read one recorded trade including notes, tags, mistakes, prices, P&L, the original TradingView URL and a browser link to the stored snapshot. Use its key from list_trades. Use get_trade_snapshot for image bytes with MCP access.",
       annotations,
       inputSchema: { key: z.string().min(1).max(500) },
     },
@@ -246,6 +276,11 @@ export function createJournalMcpServer(access: McpAccess) {
       const row = getTradeByKey(key);
       if (!row) return failure("Trade not found. Use a key returned by list_trades.");
       const trade = rowToTrade(row);
+      const stored = db
+        .select({ id: snapshots.id })
+        .from(snapshots)
+        .where(snapshotOwner(key))
+        .get();
       return result({
         timeZone: getTimeZone(),
         trade: {
@@ -259,8 +294,41 @@ export function createJournalMcpServer(access: McpAccess) {
           plannedR: plannedR(trade),
           realizedR: tradeR(trade),
           notes: row.notes,
+          tradingViewUrl: row.tradingViewUrl,
+          hasSnapshot: Boolean(stored),
+          snapshotUrl: stored ? imageUrl(key) : null,
         },
       });
+    },
+  );
+
+  server.registerTool(
+    "get_trade_snapshot",
+    {
+      description:
+        "View the stored trade snapshot as an image, or use download mode to save its original bytes from the embedded resource's base64 blob. Use a key from list_trades. For the TradingView source URL use get_trade.",
+      annotations,
+      inputSchema: {
+        key: z.string().min(1).max(500),
+        mode: z.enum(["view", "download"]).default("view"),
+      },
+    },
+    ({ key, mode }) => {
+      const stored = db.select().from(snapshots).where(snapshotOwner(key)).get();
+      if (!stored)
+        return failure("No stored snapshot for this trade. Check get_trade for the source URL.");
+      const data = stored.data.toString("base64");
+      if (mode === "download") {
+        return {
+          content: [
+            {
+              type: "resource",
+              resource: { uri: imageUrl(key), mimeType: stored.mime, blob: data },
+            },
+          ],
+        };
+      }
+      return { content: [{ type: "image", mimeType: stored.mime, data }] };
     },
   );
 

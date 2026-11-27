@@ -30,8 +30,9 @@ MCP is off by default. Set an installation password in **Settings → Security**
 open **Settings → MCP** to create or revoke a connection. Read gives access to trades
 and journal notes, and list text templates. Read/Write also lets your assistant add a new weekly review after
 you approve the draft; the first save creates **Notes → Weekly AI reviews**. Read/Write can also
-add, remove or replace tags on a recorded trade with `update_trade_tags`. Neither
-option can edit existing notes, change other trade fields or place orders. Use **Open MCP guide**
+append a paragraph to a recorded trade with `append_trade_note`, and add, remove or
+replace tags with `update_trade_tags`. Neither option can overwrite existing note text,
+change other trade fields or place orders. Use **Open MCP guide**
 in Settings, or call `get_mcp_guide` from your connected assistant for the workflow.
 
 Read/Write can also create templates for the editor’s **Insert template** menu. It
